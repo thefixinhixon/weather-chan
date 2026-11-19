@@ -1,0 +1,292 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Events Calendar
+X-WR-TIMEZONE:America/Denver
+X-WR-CALDESC:Monthly Events at the Greenery Room Ruidoso Cannabis Consumpti
+ on Lounge
+BEGIN:VTIMEZONE
+TZID:America/Denver
+X-LIC-LOCATION:America/Denver
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0600
+TZNAME:MDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0600
+TZOFFSETTO:-0700
+TZNAME:MST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20261120
+DTEND;VALUE=DATE:20261121
+RRULE:FREQ=WEEKLY;BYDAY=FR
+EXDATE;VALUE=DATE:20261127
+DTSTAMP:20261119T021716Z
+UID:48opvco2c9vhhe6e95g6ftohrc@google.com
+CLASS:PUBLIC
+CREATED:20261119T021336Z
+DESCRIPTION:Movies all day in the Midtown consumption lounge. Free entry\, 
+ come hang. Midtown is open 9 AM to 11 PM daily.
+LAST-MODIFIED:20261119T021339Z
+LOCATION:The Greenery Room — Midtown Lounge\, 2330 Sudderth Dr\, Ruidoso\, 
+ NM 88345
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Movie Day
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=America/Denver:20221008T100000
+DTEND;TZID=America/Denver:20221008T111500
+RRULE:FREQ=WEEKLY;WKST=SU;UNTIL=20221105T055959Z;INTERVAL=2;BYDAY=SA
+DTSTAMP:20261119T021716Z
+UID:46d8tmh4oq37v4mi733os8et7s@google.com
+CREATED:20220927T001932Z
+DESCRIPTION:Weekly Yoga<br>Dimitra Hosts 2nd Saturday<br>Leighann Hosts 4th
+  Saturday<br><span style="background-color: var(--textfield-surface)\; colo
+ r: var(--on-surface)\;">Event is limited to 20 seats</span><br><br>1 -&nbsp
+ \;<br>2 -&nbsp\;<br>3 -&nbsp\;<br>4 -&nbsp\;<br>5 -&nbsp\;<br>6 -&nbsp\;<br
+ >7 -&nbsp\;<br>8 -&nbsp\;<br>9 -&nbsp\;<br>10 -&nbsp\;<br>11 -&nbsp\;<br>12
+  -&nbsp\;<br>13 -&nbsp\;<br>14 -&nbsp\;<br>15 -&nbsp\;<br>16 -&nbsp\;<br>17
+  -&nbsp\;<br>18 -&nbsp\;<br>19 -&nbsp\;<br>20 -&nbsp\;
+LAST-MODIFIED:20220928T001055Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:2
+STATUS:CONFIRMED
+SUMMARY:Yoga with Dimitra and Leighann
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=America/Denver:20261119T201500
+DTEND;TZID=America/Denver:20261119T221500
+RRULE:FREQ=WEEKLY;BYDAY=TH
+EXDATE;TZID=America/Denver:20261126T201500
+EXDATE;TZID=America/Denver:20261224T201500
+EXDATE;TZID=America/Denver:20261231T201500
+DTSTAMP:20261119T021716Z
+UID:3823rd0ekc53o9k6r9q55psuis@google.com
+CLASS:PUBLIC
+CREATED:20261119T021322Z
+DESCRIPTION:Free to play in the Midtown consumption lounge\, hosted by Ray.
+  Cards play right on your phone. Prizes are Greenery Room and vendor merch 
+ and accessories. Running late? Spectate a round and get dealt in on the nex
+ t one. Midtown is open 9 AM to 11 PM daily.
+LAST-MODIFIED:20261119T021351Z
+LOCATION:The Greenery Room — Midtown Lounge\, 2330 Sudderth Dr\, Ruidoso\, 
+ NM 88345
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Weed Bingo
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=America/Denver:20261119T201500
+DTEND;TZID=America/Denver:20261119T221500
+DTSTAMP:20261119T021716Z
+UID:3823rd0ekc53o9k6r9q55psuis@google.com
+RECURRENCE-ID;TZID=America/Denver:20261119T201500
+CLASS:PUBLIC
+CREATED:20261119T021322Z
+DESCRIPTION:Friendsgiving Bingo in the Midtown consumption lounge\, hosted 
+ by Ray. Free to play\, cards play right on your phone. Prizes are Greenery 
+ Room and vendor merch and accessories. This is the last Bingo before Thanks
+ giving — Bingo returns Thursday\, December 3.
+LAST-MODIFIED:20261119T021351Z
+LOCATION:The Greenery Room — Midtown Lounge\, 2330 Sudderth Dr\, Ruidoso\, 
+ NM 88345
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Weed Bingo — Friendsgiving Edition
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20261126
+DTEND;VALUE=DATE:20261127
+DTSTAMP:20261119T021716Z
+UID:ahtn91qi5bavlo8cgultl20noo@google.com
+CLASS:PUBLIC
+CREATED:20261119T021336Z
+DESCRIPTION:All three Greenery Room stores are closed for Thanksgiving Day:
+  Midtown at 2330 Sudderth Dr\, Ruidoso\; Alto at 876 Highway 48\; Carrizozo
+  at 6505 US Hwy 380. No Weed Bingo tonight. Bingo returns Thursday\, Decemb
+ er 3.
+LAST-MODIFIED:20261119T021337Z
+LOCATION:All three stores: Midtown (Ruidoso)\, Alto\, and Carrizozo
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Closed for Thanksgiving
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=America/Denver:20221029T100000
+DTEND;TZID=America/Denver:20221029T111500
+RRULE:FREQ=WEEKLY;WKST=SU;UNTIL=20230107T065959Z;INTERVAL=2;BYDAY=SA
+EXDATE;TZID=America/Denver:20221029T100000
+DTSTAMP:20261119T021716Z
+UID:a30v4mb9li67c9vj55apa66ppa@google.com
+CREATED:20220927T001932Z
+DESCRIPTION:Weekly Yoga<br>Dimitra Hosts 2nd Saturday<br>Leighann Hosts 4th
+  Saturday<br><span style="background-color: var(--textfield-surface)\; colo
+ r: var(--on-surface)\;">Event is limited to 20 seats</span><br><br>1 -&nbsp
+ \;<br>2 -&nbsp\;<br>3 -&nbsp\;<br>4 -&nbsp\;<br>5 -&nbsp\;<br>6 -&nbsp\;<br
+ >7 -&nbsp\;<br>8 -&nbsp\;<br>9 -&nbsp\;<br>10 -&nbsp\;<br>11 -&nbsp\;<br>12
+  -&nbsp\;<br>13 -&nbsp\;<br>14 -&nbsp\;<br>15 -&nbsp\;<br>16 -&nbsp\;<br>17
+  -&nbsp\;<br>18 -&nbsp\;<br>19 -&nbsp\;<br>20 -&nbsp\;
+LAST-MODIFIED:20220928T001718Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:3
+STATUS:CONFIRMED
+SUMMARY:Yoga with Dimitra and Leighann
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20221216T000000Z
+DTEND:20221216T010000Z
+DTSTAMP:20261119T021716Z
+UID:4ng72f6k8lvt4tv7v6ao4fp900@google.com
+X-GOOGLE-CONFERENCE:https://meet.google.com/ipf-zmmy-jpr
+CLASS:PUBLIC
+CREATED:20221129T180624Z
+DESCRIPTION:Join with Google Meet: https://meet.google.com/ipf-zmmy-jpr\nOr
+  dial: (US) +1 470-485-0792 PIN: 827102033#\nMore phone numbers: https://te
+ l.meet/ipf-zmmy-jpr?pin=8382073056544&hs=7\n\nLearn more about Meet at: htt
+ ps://support.google.com/a/users/answer/9282720
+LAST-MODIFIED:20221209T222241Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:5
+STATUS:CONFIRMED
+SUMMARY:Edibles 101
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261128T180000Z
+DTEND:20261128T220000Z
+DTSTAMP:20261119T021716Z
+UID:fth1d58aoo28d2sc1cb48h8ug8@google.com
+CLASS:PUBLIC
+CREATED:20261119T021337Z
+DESCRIPTION:Pure Derivatives takes over the Midtown consumption lounge from
+  11 AM to 3 PM. It is also Small Business Saturday — thanks for shopping lo
+ cal.
+LAST-MODIFIED:20261119T021337Z
+LOCATION:The Greenery Room — Midtown Lounge\, 2330 Sudderth Dr\, Ruidoso\, 
+ NM 88345
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Pure Derivatives Pop-Up — Consumption Lounge Takeover
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20230107T210000Z
+DTEND:20230107T230000Z
+DTSTAMP:20261119T021716Z
+UID:23n8knc11duciigpu5ni9c1cuj@google.com
+CREATED:20221219T171215Z
+LAST-MODIFIED:20221219T171215Z
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Era Snow At The Greenery Room Lounge
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20221023T200000Z
+DTEND:20221023T220000Z
+DTSTAMP:20261119T021716Z
+UID:5ctpdtkvgqbq36ke3io9hklnbv@google.com
+CREATED:20220927T002435Z
+DESCRIPTION:Era Snow Live Performance in the lounge\n10/23/22\n2PM-4PM\n\n\
+ nEvent is limited to 20 seats\n\n1 - \n2 - \n3 - \n4 - \n5 - \n6 - \n7 - \n
+ 8 - \n9 - \n10 - \n11 - \n12 - \n13 - \n14 - \n15 - \n16 - \n17 - \n18 - \n
+ 19 - \n20 -
+LAST-MODIFIED:20220927T002435Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Era Snow - Live Performance
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20221225
+DTEND;VALUE=DATE:20221226
+DTSTAMP:20261119T021716Z
+UID:1g9lvu0t7uivfaelgbfutgljfa@google.com
+CREATED:20221201T211606Z
+DESCRIPTION:We will be closed at all of our locations! Have a Merry Christm
+ as!
+LAST-MODIFIED:20221201T211606Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Closed For The Holiday! 
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20221011T220000Z
+DTEND:20221012T010000Z
+DTSTAMP:20261119T021716Z
+UID:0m2ok2n9v2kmn4gb18853incmg@google.com
+CREATED:20220927T003731Z
+DESCRIPTION:<span>Event is limited to 20 seats</span><br><br><br>1 -&nbsp\;
+ <br>2 -&nbsp\;<br>3 -&nbsp\;<br>4 -&nbsp\;<br>5 -&nbsp\;<br>6 -&nbsp\;<br>7
+  -&nbsp\;<br>8 -&nbsp\;<br>9 -&nbsp\;<br>10 -&nbsp\;<br>11 -&nbsp\;<br>12 -
+ &nbsp\;<br>13 -&nbsp\;<br>14 -&nbsp\;<br>15 -&nbsp\;<br>16 -&nbsp\;<br>17 -
+ &nbsp\;<br>18 -&nbsp\;<br>19 -&nbsp\;<br>20 -&nbsp\;
+LAST-MODIFIED:20220927T003808Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:2
+STATUS:CONFIRMED
+SUMMARY:Old School Video Game Tournament
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20221022T190000Z
+DTEND:20221022T210000Z
+DTSTAMP:20261119T021716Z
+UID:7t2o76njv3jls9ere100et920l@google.com
+CREATED:20220927T000919Z
+DESCRIPTION:<html-blob><b>10/22/22 Pumpkin Carving Contest</b><br><br>Pumpk
+ in and tools provided<br>-1st place (Marley Natural Bong)<br>-2nd Place (Da
+ b Rig)<br>3rd Place (water pipe)<br><br>1PM-3PM<br><br><br>Event is limited
+  to 20 seats<br><br>1 - Collin Hood<br>2 - Max Wapner<br>3 -&nbsp\;<br>4 -&
+ nbsp\;<br>5 -&nbsp\;<br>6 -&nbsp\;<br>7 -&nbsp\;<br>8 -&nbsp\;<br>9 -&nbsp\
+ ;<br>10 -&nbsp\;<br>11 -&nbsp\;<br>12 -&nbsp\;<br>13 -&nbsp\;<br>14 -&nbsp\
+ ;<br>15 -&nbsp\;<br>16 -&nbsp\;<br>17 -&nbsp\;<br>18 -&nbsp\;<br>19 -&nbsp\
+ ;<br>20 -&nbsp\;</html-blob>
+LAST-MODIFIED:20220927T001817Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Pumpkin Carving - 1PM - Free Entry (20 Max)
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20221021T220000Z
+DTEND:20221022T010000Z
+DTSTAMP:20261119T021716Z
+UID:10ivfr3mqoe7r362g3q0brsg8q@google.com
+CREATED:20220927T001217Z
+DESCRIPTION:<html-blob>The Doso Dirtbags will be playing in our on-site can
+ nabis consumption lounge!<br><br>Register early as this event is sure to fi
+ ll up quick so register ASAP!</html-blob><br><html-blob><br></html-blob><br
+ ><html-blob><br>Event is limited to 20 seats<br><br>1 -&nbsp\;<br>2 -&nbsp\
+ ;<br>3 -&nbsp\;<br>4 -&nbsp\;<br>5 -&nbsp\;<br>6 -&nbsp\;<br>7 -&nbsp\;<br>
+ 8 -&nbsp\;<br>9 -&nbsp\;<br>10 -&nbsp\;<br>11 -&nbsp\;<br>12 -&nbsp\;<br>13
+  -&nbsp\;<br>14 -&nbsp\;<br>15 -&nbsp\;<br>16 -&nbsp\;<br>17 -&nbsp\;<br>18
+  -&nbsp\;<br>19 -&nbsp\;<br>20 -&nbsp\;</html-blob>
+LAST-MODIFIED:20220927T012304Z
+LOCATION:2330 Sudderth Dr\, Ruidoso\, NM 88345\, USA
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Doso Dirtbags
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
