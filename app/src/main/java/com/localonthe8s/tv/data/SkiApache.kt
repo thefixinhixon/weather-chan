@@ -21,6 +21,7 @@ data class ActivityStatus(
 /** The live Ski Apache conditions digest for one report cycle. */
 data class SkiReport(
     val updatedLabel: String,
+    val updatedMillis: Long?,
     val past24: String,
     val past48: String,
     val baseDepth: String,
@@ -73,8 +74,10 @@ object SkiApache {
             )
         }.distinctBy { it.name }.toList()
 
+        val updatedLabel = UPDATED.find(text)?.groupValues?.get(1)?.trim().orEmpty()
         SkiReport(
-            updatedLabel = UPDATED.find(text)?.groupValues?.get(1)?.trim().orEmpty(),
+            updatedLabel = updatedLabel,
+            updatedMillis = parseUpdatedMillis(updatedLabel),
             past24 = PAST_24.find(text)?.groupValues?.get(1).orEmpty(),
             past48 = PAST_48.find(text)?.groupValues?.get(1).orEmpty(),
             baseDepth = BASE.find(text)?.groupValues?.get(1).orEmpty(),
@@ -110,6 +113,38 @@ object SkiApache {
                 open = status.contains("open", ignoreCase = true)
             )
         }.toList()
+    }
+
+    /** True when the resort's own report is older than ~12h — the cam still is
+     * fresh, but the numbers beside it are the latest the resort has posted. */
+    fun SkiReport.isStale(now: Long = System.currentTimeMillis()): Boolean =
+        updatedMillis?.let { now - it > 12L * 60 * 60 * 1000 } ?: false
+
+    private val UPDATED_MILLIS =
+        Regex("(\\w+)\\s+(\\d{1,2}),\\s+(\\d{4})\\s+(\\d{1,2}):(\\d{2})\\s*([AaPp])[Mm]?", )
+    private val MONTHS = mapOf(
+        "january" to 0, "february" to 1, "march" to 2, "april" to 3,
+        "may" to 4, "june" to 5, "july" to 6, "august" to 7,
+        "september" to 8, "october" to 9, "november" to 10, "december" to 11
+    )
+
+    /** Turns "November 18, 2026 11:00am" into epoch millis; null when unparseable. */
+    internal fun parseUpdatedMillis(label: String): Long? {
+        val match = UPDATED_MILLIS.find(label.trim()) ?: return null
+        val month = MONTHS[match.groupValues[1].lowercase()] ?: return null
+        val day = match.groupValues[2].toIntOrNull() ?: return null
+        val year = match.groupValues[3].toIntOrNull() ?: return null
+        var hour = match.groupValues[4].toIntOrNull() ?: return null
+        val minute = match.groupValues[5].toIntOrNull() ?: return null
+        if (match.groupValues[6].equals("p", ignoreCase = true)) {
+            if (hour < 12) hour += 12
+        } else if (hour == 12) {
+            hour = 0
+        }
+        val cal = java.util.Calendar.getInstance()
+        cal.set(year, month, day, hour, minute, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
     }
 
     private fun clean(raw: String): String {

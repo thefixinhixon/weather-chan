@@ -845,7 +845,9 @@ fun rememberSkiApache(refreshToken: Int): SkiReport? {
  * Ski Apache live conditions: the mountain-cam still beside the snow numbers
  * and the lift board. The still reloads on every visit so the picture is at
  * most one rotation old; a timestamp buster keeps the shared art cache from
- * serving the previous frame.
+ * serving the previous frame. The resort's own report time stays off the
+ * picture — the cam is live even when the resort last posted yesterday — and
+ * is labeled as the resort report beside the lift board instead.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -886,7 +888,7 @@ fun SkiApachePanel(report: SkiReport?, modifier: Modifier = Modifier) {
                     )
                 }
                 Text(
-                    text = "● LIVE CAM" + (report.updatedLabel.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""),
+                    text = "● LIVE CAM",
                     style = Type.Small.copy(color = Palette.White),
                     modifier = Modifier
                         .padding(10.dp)
@@ -908,6 +910,14 @@ fun SkiApachePanel(report: SkiReport?, modifier: Modifier = Modifier) {
                         " • TRAILS ${report.openTrails.ifBlank { "–" }} OPEN",
                     style = Type.Body.copy(fontWeight = FontWeight.Bold, color = Palette.Cyan)
                 )
+                if (report.updatedLabel.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "RESORT REPORT • ${report.updatedLabel.uppercase()}" +
+                            (if (SkiApache.run { report.isStale() }) " • LATEST AVAILABLE" else ""),
+                        style = Type.Small.copy(color = Palette.Muted)
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 Column(Modifier.weight(1f)) {
                     report.lifts.forEach { lift ->
