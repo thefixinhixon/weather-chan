@@ -8,7 +8,8 @@ enum class Segment(val title: String, val durationSec: Int) {
     HOURLY("HOURLY FORECAST", 12),
     RADAR("REGIONAL DOPPLER", 14),
     ALMANAC("ALMANAC", 10),
-    SKI_APACHE("SKI APACHE LIVE", 15);
+    SKI_APACHE("SKI APACHE LIVE", 15),
+    RUIDOSO("RUIDOSO LIVE", 15);
 
     fun next(): Segment = values()[(ordinal + 1) % values().size]
 

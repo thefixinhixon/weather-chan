@@ -27,6 +27,8 @@ data class RadarFrameImage(val image: Bitmap, val ageLabel: String)
  */
 data class RadarLoop(
     val frames: List<RadarFrameImage>,
+    /** Stitched terrain underlay; null when the tile service is unreachable. */
+    val base: Bitmap?,
     val west: Double,
     val south: Double,
     val east: Double,
@@ -70,6 +72,18 @@ object RadarFeed {
     private const val FRAME_STEP_MINUTES = 5
     private const val FRAME_COUNT = 8
 
+    /**
+     * Esri's World Topo basemap is keyless and public: towns, highways, water
+     * and terrain shading that keep the map readable on clear days when there
+     * are no echoes to look at.
+     */
+    private const val TOPO_ENDPOINT =
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile"
+    private const val HILLSHADE_ENDPOINT =
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile"
+    private const val TOPO_ZOOM = 9
+    private const val TILE_PX = 256
+
     private data class BoundingBox(
         val west: Double,
         val south: Double,
@@ -104,8 +118,11 @@ object RadarFeed {
         val newest = fetched.first { it.first == 0 }.second
             ?: ordered.last()
 
+        val base = runCatching { fetchTopoBase(box) }.getOrNull()
+
         RadarLoop(
             frames = ordered,
+            base = base,
             west = box.west,
             south = box.south,
             east = box.east,
@@ -131,6 +148,143 @@ object RadarFeed {
             ?: throw IOException("Radar frame did not decode")
         RadarFrameImage(bitmap, ageLabel(index * FRAME_STEP_MINUTES))
     }.getOrNull()
+
+    /**
+     * Builds the underlay: the topo basemap tinted to the channel's night
+     * palette, then hillshade multiplied over it so the Sacramento range and
+     * the Tularosa Basin read as terrain, not flat fill. Cropped to the exact
+     * bounds so it lines up with the echo frames pixel for pixel.
+     */
+    private suspend fun fetchTopoBase(box: BoundingBox): Bitmap? {
+        val z = TOPO_ZOOM
+        val x0 = lonToTileX(box.west, z).toInt()
+        val x1 = lonToTileX(box.east, z).toInt()
+        val y0 = latToTileY(box.north, z).toInt()
+        val y1 = latToTileY(box.south, z).toInt()
+        if ((x1 - x0 + 1) * (y1 - y0 + 1) > 96) return null
+
+        val topo = stitchTiles(TOPO_ENDPOINT, z, x0, x1, y0, y1) ?: return null
+
+        // Desaturate and pull the daylight basemap down to a slate-blue night
+        // map: terrain shading keeps its detail, while the basemap's own dark
+        // labels stay dark enough to read against the ground.
+        val night = Bitmap.createBitmap(topo.width, topo.height, Bitmap.Config.ARGB_8888)
+        val matrix = android.graphics.ColorMatrix().apply {
+            set(floatArrayOf(
+                0.043f, 0.145f, 0.015f, 0f, 8f,
+                0.060f, 0.201f, 0.020f, 0f, 10f,
+                0.083f, 0.279f, 0.028f, 0f, 12f,
+                0f, 0f, 0f, 1f, 0f
+            ))
+        }
+        val nightCanvas = android.graphics.Canvas(night)
+        nightCanvas.drawBitmap(
+            topo, 0f, 0f,
+            android.graphics.Paint().apply {
+                colorFilter = android.graphics.ColorMatrixColorFilter(matrix)
+            }
+        )
+        topo.recycle()
+
+        // The hillshade is nearly white on flat ground and grey in shadow, so
+        // amplifying the contrast before multiplying makes ridges visible.
+        stitchTiles(HILLSHADE_ENDPOINT, z, x0, x1, y0, y1)?.let { relief ->
+            val contrast = android.graphics.ColorMatrix().apply {
+                set(floatArrayOf(
+                    3.4f, 0f, 0f, 0f, -690f,
+                    0f, 3.4f, 0f, 0f, -690f,
+                    0f, 0f, 3.4f, 0f, -690f,
+                    0f, 0f, 0f, 1f, 0f
+                ))
+            }
+            nightCanvas.drawBitmap(
+                relief, 0f, 0f,
+                android.graphics.Paint().apply {
+                    colorFilter = android.graphics.ColorMatrixColorFilter(contrast)
+                    xfermode = android.graphics.PorterDuffXfermode(
+                        android.graphics.PorterDuff.Mode.MULTIPLY
+                    )
+                }
+            )
+            relief.recycle()
+        }
+
+        val scale = TILE_PX * (1 shl z) / 360.0
+        val left = ((box.west + 180.0) * scale - x0 * TILE_PX).toInt().coerceIn(0, night.width - 1)
+        val right = ((box.east + 180.0) * scale - x0 * TILE_PX).toInt().coerceIn(left + 1, night.width)
+        val top = (latToGlobalPx(box.north, z) - y0 * TILE_PX).toInt().coerceIn(0, night.height - 1)
+        val bottom = (latToGlobalPx(box.south, z) - y0 * TILE_PX).toInt().coerceIn(top + 1, night.height)
+        val cropped = Bitmap.createBitmap(night, left, top, right - left, bottom - top)
+        night.recycle()
+        // Match the echo frame size exactly so the panel draws both 1:1.
+        return Bitmap.createScaledBitmap(cropped, IMAGE_WIDTH, IMAGE_HEIGHT, true).also { cropped.recycle() }
+    }
+
+    /** Fetches one tile grid in parallel and assembles it into a flat bitmap. */
+    private suspend fun stitchTiles(
+        endpoint: String,
+        z: Int,
+        x0: Int,
+        x1: Int,
+        y0: Int,
+        y1: Int
+    ): Bitmap? {
+        val gate = Semaphore(6)
+        val tiles = coroutineScope {
+            (x0..x1).flatMap { tx ->
+                (y0..y1).map { ty ->
+                    async {
+                        Triple(tx, ty, gate.withPermit { fetchTile(endpoint, z, ty, tx) })
+                    }
+                }
+            }.awaitAll()
+        }
+        if (tiles.all { it.third == null }) return null
+
+        val cols = x1 - x0 + 1
+        val rows = y1 - y0 + 1
+        val stitched = Bitmap.createBitmap(cols * TILE_PX, rows * TILE_PX, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(stitched)
+        val paint = android.graphics.Paint()
+        val fallback = tiles.firstNotNullOfOrNull { it.third }
+        tiles.forEach { (tx, ty, tile) ->
+            val drawable = tile ?: fallback ?: return@forEach
+            canvas.drawBitmap(
+                drawable,
+                ((tx - x0) * TILE_PX).toFloat(),
+                ((ty - y0) * TILE_PX).toFloat(),
+                paint
+            )
+            if (tile != null) tile.recycle()
+        }
+        return stitched
+    }
+
+    /**
+     * A single dropped tile shows up as a bright seam in the stitched map, so
+     * each one gets a second attempt before it is written off.
+     */
+    private fun fetchTile(endpoint: String, z: Int, y: Int, x: Int): Bitmap? {
+        repeat(2) {
+            val bytes = runCatching { requestBytes("$endpoint/$z/$y/$x") }.getOrNull()
+            if (bytes != null) {
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                if (bitmap != null) return bitmap
+            }
+        }
+        return null
+    }
+
+    private fun lonToTileX(lon: Double, z: Int): Double = (lon + 180.0) / 360.0 * (1 shl z)
+
+    private fun latToTileY(lat: Double, z: Int): Double =
+        latToGlobalPx(lat, z) / TILE_PX
+
+    private fun latToGlobalPx(lat: Double, z: Int): Double {
+        val radians = Math.toRadians(lat)
+        val world = TILE_PX * (1 shl z).toDouble()
+        return (1.0 - Math.log(Math.tan(radians) + 1.0 / Math.cos(radians)) / Math.PI) / 2.0 * world
+    }
 
     private fun buildUrl(layer: String, box: BoundingBox): String = buildString {
         append(WMS_ENDPOINT)

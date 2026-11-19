@@ -81,6 +81,7 @@ fun BroadcastScreen(
     val calendar = rememberCalendar(refreshToken, calendarUrl)
     val events = calendar.events
     val ski = rememberSkiApache(refreshToken)
+    val ruidoso = rememberRuidoso(refreshToken)
 
     // The lineup is a second focus tree; tearing it down can leave the broadcast with
     // no focused node, and then the D-pad silently stops tuning markets. Ask again
@@ -235,7 +236,7 @@ fun BroadcastScreen(
                             animationSpec = tween(420),
                             label = "segment"
                         ) { current ->
-                            ForecastContent(current, place, state, snapshot, radar, ski)
+                            ForecastContent(current, place, state, snapshot, radar, ski, ruidoso)
                         }
                     } else {
                         val count = events.size
@@ -252,7 +253,11 @@ fun BroadcastScreen(
             Spacer(Modifier.height(12.dp))
             TickerBar(
                 text = if (showingWeather) {
-                    if (segment == Segment.SKI_APACHE) skiTicker(ski) else tickerText(snapshot, place)
+                    when (segment) {
+                        Segment.SKI_APACHE -> skiTicker(ski)
+                        Segment.RUIDOSO -> ruidosoTicker(ruidoso)
+                        else -> tickerText(snapshot, place)
+                    }
                 } else {
                     calendarTicker(events)
                 },
@@ -294,7 +299,8 @@ private fun ForecastContent(
     state: WeatherUiState,
     snapshot: WeatherSnapshot?,
     radar: RadarUiState,
-    ski: com.localonthe8s.tv.data.SkiReport?
+    ski: com.localonthe8s.tv.data.SkiReport?,
+    ruidoso: com.localonthe8s.tv.data.WeatherSnapshot?
 ) {
     val modifier = Modifier.fillMaxSize()
     when (segment) {
@@ -330,6 +336,7 @@ private fun ForecastContent(
             SignalPanel(state, modifier)
         }
         Segment.SKI_APACHE -> SkiApachePanel(ski, modifier)
+        Segment.RUIDOSO -> RuidosoPanel(ruidoso, modifier)
     }
 }
 
@@ -382,6 +389,17 @@ private fun skiTicker(ski: com.localonthe8s.tv.data.SkiReport?): String {
         append(ski.openLifts.ifBlank { "–" }).append(" OPEN • TRAILS ")
         append(ski.openTrails.ifBlank { "–" }).append(" OPEN")
         if (ski.road.isNotBlank()) append(" • ROAD ").append(ski.road)
+    }
+}
+
+private fun ruidosoTicker(live: com.localonthe8s.tv.data.WeatherSnapshot?): String {
+    if (live == null) return "RUIDOSO LIVE • LINKING MIDTOWN CAM • DOWNTOWN CONDITIONS NEXT"
+    val current = live.current
+    val today = live.daily.firstOrNull()
+    return buildString {
+        append("RUIDOSO LIVE • ${current.tempF}°F ${describe(current.code).uppercase()}")
+        append(" • FEELS ${current.feelsLikeF}° • WIND ${current.windDir} ${current.windMph} MPH")
+        if (today != null) append(" • HIGH ${today.highF}° / LOW ${today.lowF}°")
     }
 }
 

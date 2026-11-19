@@ -49,7 +49,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -65,6 +68,8 @@ import com.localonthe8s.tv.data.DailyPoint
 import com.localonthe8s.tv.data.EventArtwork
 import com.localonthe8s.tv.data.HourlyPoint
 import com.localonthe8s.tv.data.Observation
+import com.localonthe8s.tv.data.OpenMeteo
+import com.localonthe8s.tv.data.Ruidoso
 import com.localonthe8s.tv.data.SkiApache
 import com.localonthe8s.tv.data.SkiReport
 import com.localonthe8s.tv.data.StateBorders
@@ -366,7 +371,19 @@ private val COUNTY_TOWNS = listOf(
     CountyTown("RUIDOSO", 33.3314, -105.2855),
     CountyTown("ALTO", 33.3906, -105.6775),
     CountyTown("CAPITAN", 33.5456, -105.5767),
-    CountyTown("CARRIZOZO", 33.6420, -105.8770)
+    CountyTown("CARRIZOZO", 33.6420, -105.8770),
+    CountyTown("CLOUDCROFT", 32.9552, -105.7443),
+    CountyTown("ALAMOGORDO", 32.8995, -106.3075),
+    CountyTown("ROSWELL", 33.3943, -104.5230)
+)
+
+private data class Landmark(val name: String, val lat: Double, val lon: Double)
+
+private val MAP_LANDMARKS = listOf(
+    Landmark("SIERRA BLANCA 11,973'", 33.3747, -105.8088),
+    Landmark("BONITO LAKE", 33.4556, -105.7297),
+    Landmark("VALLEY OF FIRES", 33.3200, -105.7150),
+    Landmark("WHITE SANDS", 32.7797, -106.1714)
 )
 
 @Composable
@@ -376,6 +393,7 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
     val context = LocalContext.current
     var borders by remember { mutableStateOf<List<StateOutline>>(emptyList()) }
     var frameIndex by remember(loop) { mutableStateOf(0) }
+    val textMeasurer = rememberTextMeasurer()
 
     LaunchedEffect(Unit) { borders = StateBorders.load(context) }
 
@@ -419,6 +437,20 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
                 loop?.let { radarFrame ->
                     val frameImage = shown?.image ?: radarFrame.frames.lastOrNull()?.image
                     if (frameImage == null) return@let
+                    // Terrain sits under the echoes so the map reads on clear days.
+                    radarFrame.base?.let { terrain ->
+                        val terrainBitmap = terrain.asImageBitmap()
+                        drawImage(
+                            image = terrainBitmap,
+                            srcOffset = IntOffset.Zero,
+                            srcSize = IntSize(terrainBitmap.width, terrainBitmap.height),
+                            dstOffset = IntOffset.Zero,
+                            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                            filterQuality = FilterQuality.Medium
+                        )
+                        // Slight lift so the tinted terrain stays behind the echoes.
+                        drawRect(Palette.Ink.copy(alpha = 0.04f))
+                    }
                     val bitmap = frameImage.asImageBitmap()
                     drawImage(
                         image = bitmap,
@@ -499,7 +531,71 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
                         )
                     }
 
-                    // Nearby county towns give the map its detail.
+                    // Nearby towns and landmarks give the map its detail. A
+                    // label is dropped when it would land on one already
+                    // drawn, so dense clusters (Ruidoso/Alto/Ruidoso Downs)
+                    // stay legible instead of stacking words on each other.
+                    val placed = mutableListOf<Rect>()
+                    fun label(text: String, style: TextStyle, center: Offset, above: Boolean): Boolean {
+                        val layout = textMeasurer.measure(text, style)
+                        val w = layout.size.width.toFloat()
+                        val h = layout.size.height.toFloat()
+                        val top = if (above) center.y - h - 10f else center.y + 8f
+                        // Keep the whole word on the map when its dot sits near
+                        // an edge, instead of slicing towns like ALAMOGORDO.
+                        val left = (center.x - w / 2f - 6f)
+                            .coerceIn(0f, (size.width - w - 12f).coerceAtLeast(0f))
+                        val rect = Rect(
+                            left = left,
+                            top = top - 3f,
+                            right = left + w + 12f,
+                            bottom = top + h + 3f
+                        )
+                        if (placed.any { it.overlaps(rect) }) return false
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = text,
+                            topLeft = Offset(rect.left + 6f, top),
+                            style = style
+                        )
+                        placed.add(rect)
+                        return true
+                    }
+
+                    val townStyle = TextStyle(
+                        color = Palette.White.copy(alpha = 0.92f),
+                        fontSize = (size.width / 58f).toSp()
+                    )
+                    // The tuned town claims its label first, so neighboring
+                    // towns yield instead of colliding with the readout.
+                    val tuned = Offset(
+                        radarFrame.xFraction(place.longitude) * size.width,
+                        radarFrame.yFraction(place.latitude) * size.height
+                    )
+                    label(
+                        place.name.uppercase(),
+                        townStyle.copy(color = Palette.Amber, fontWeight = FontWeight.Bold),
+                        tuned,
+                        above = false
+                    )
+                    // Peaks, lakes and monuments come before plain town names:
+                    // they are the landmark layer the map is here to carry.
+                    val landmarkStyle = TextStyle(
+                        color = Palette.Amber.copy(alpha = 0.92f),
+                        fontSize = (size.width / 72f).toSp()
+                    )
+                    MAP_LANDMARKS.forEach { mark ->
+                        if (mark.lon in radarFrame.west..radarFrame.east &&
+                            mark.lat in radarFrame.south..radarFrame.north
+                        ) {
+                            val at = Offset(
+                                radarFrame.xFraction(mark.lon) * size.width,
+                                radarFrame.yFraction(mark.lat) * size.height
+                            )
+                            label(mark.name, landmarkStyle, at, above = true) ||
+                                label(mark.name, landmarkStyle, at, above = false)
+                        }
+                    }
                     COUNTY_TOWNS.forEach { townMark ->
                         if (townMark.lon in radarFrame.west..radarFrame.east &&
                             townMark.lat in radarFrame.south..radarFrame.north
@@ -509,6 +605,11 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
                                 radarFrame.yFraction(townMark.lat) * size.height
                             )
                             drawCircle(Palette.White.copy(alpha = 0.9f), 3f, dot)
+                            // The tuned town already carries the crosshair readout.
+                            if (!townMark.name.equals(place.name, ignoreCase = true)) {
+                                label(townMark.name, townStyle, dot, above = false) ||
+                                    label(townMark.name, townStyle, dot, above = true)
+                            }
                         }
                     }
                 }
@@ -531,11 +632,16 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
                 style = Type.Small.copy(color = Palette.Green),
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
             )
-            Text(
-                "LINCOLN COUNTY",
-                style = Type.Small.copy(color = Palette.Amber),
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 28.dp)
-            )
+            // Only name the county when the view actually covers it.
+            val countyInView = loop != null && loop.west < COUNTY_EAST && loop.east > COUNTY_WEST &&
+                loop.south < COUNTY_NORTH && loop.north > COUNTY_SOUTH
+            if (countyInView) {
+                Text(
+                    "LINCOLN COUNTY",
+                    style = Type.Small.copy(color = Palette.Amber),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 28.dp)
+                )
+            }
             if (shown != null) {
                 Text(
                     text = "LOOP ${shown.ageLabel}",
@@ -543,14 +649,8 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 12.dp)
                 )
             }
-            // Town names are drawn in-canvas dots above; keep the readout near the crosshair.
             Text(
-                place.name.uppercase(),
-                style = Type.Small.copy(color = Palette.White),
-                modifier = Modifier.align(Alignment.Center).offset(y = 18.dp)
-            )
-            Text(
-                "${peakPrecip}% PEAK PRECIP • RINGS 25/50 MI",
+                "${peakPrecip}% PEAK PRECIP • RINGS 25/50 MI • TERRAIN ESRI",
                 style = Type.Small,
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)
             )
@@ -826,6 +926,112 @@ fun SkiApachePanel(report: SkiReport?, modifier: Modifier = Modifier) {
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = "ROAD ${report.road.ifBlank { "–" }} • SKIAPACHE.COM",
+                    style = Type.Small.copy(color = Palette.Muted)
+                )
+            }
+        }
+    }
+}
+
+/** Polls Open-Meteo for Ruidoso; keeps the last good snapshot on failure. */
+@Composable
+fun rememberRuidoso(refreshToken: Int): com.localonthe8s.tv.data.WeatherSnapshot? {
+    var live by remember { mutableStateOf<com.localonthe8s.tv.data.WeatherSnapshot?>(null) }
+    LaunchedEffect(refreshToken) {
+        while (true) {
+            runCatching { OpenMeteo.fetch(Ruidoso.PLACE) }.onSuccess { live = it }
+            delay(15 * 60 * 1000L)
+        }
+    }
+    return live
+}
+
+/**
+ * Live conditions in Ruidoso: the Midtown webcam still beside the town's own
+ * current readings. The still reloads on every visit so the picture is at
+ * most one rotation old; the poster fills in when the stream is down.
+ */
+@Composable
+fun RuidosoPanel(live: com.localonthe8s.tv.data.WeatherSnapshot?, modifier: Modifier = Modifier) {
+    PanelFrame(
+        title = "RUIDOSO LIVE",
+        caption = "MIDTOWN • LIVE CONDITIONS IN RUIDOSO",
+        modifier = modifier
+    ) {
+        if (live == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("LINKING MIDTOWN CAM…", style = Type.BodyDim)
+            }
+            return@PanelFrame
+        }
+        val current = live.current
+        val today = live.daily.firstOrNull()
+        Row(Modifier.fillMaxSize()) {
+            var frame by remember { mutableStateOf<ImageBitmap?>(null) }
+            LaunchedEffect(Unit) {
+                val busted = Ruidoso.LIVE_THUMB + "?t=${System.currentTimeMillis()}"
+                frame = EventArtwork.cached(busted)?.asImageBitmap()
+                    ?: EventArtwork.load(busted)?.asImageBitmap()
+                    ?: EventArtwork.cached(Ruidoso.POSTER)?.asImageBitmap()
+                    ?: EventArtwork.load(Ruidoso.POSTER)?.asImageBitmap()
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1.15f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Palette.Navy.copy(alpha = 0.45f))
+                    .border(1.dp, Palette.Line.copy(alpha = 0.6f), RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.BottomStart
+            ) {
+                frame?.let {
+                    Image(
+                        bitmap = it,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Text(
+                    text = "● MIDTOWN CAM • ${current.observedAtLabel}",
+                    style = Type.Small.copy(color = Palette.White),
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .background(Palette.Ink.copy(alpha = 0.72f), RoundedCornerShape(3.dp))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+            Spacer(Modifier.width(18.dp))
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    WeatherGlyph(glyphFor(current.code), 64.dp)
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("${current.tempF}", style = Type.Hero.copy(fontSize = 64.sp))
+                            Text("°", style = Type.Hero.copy(fontSize = 64.sp, color = Palette.Amber))
+                        }
+                        Text(describe(current.code).uppercase(), style = Type.TempMid.copy(color = Palette.Cyan))
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "FEELS LIKE ${current.feelsLikeF}° • WIND ${current.windDir} ${current.windMph} MPH",
+                    style = Type.BodyDim
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    SkiStat("HIGH", today?.let { "${it.highF}°" } ?: "–", Modifier.weight(1f))
+                    SkiStat("LOW", today?.let { "${it.lowF}°" } ?: "–", Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    SkiStat("PRECIP", today?.let { "${it.precipChance}%" } ?: "–", Modifier.weight(1f))
+                    SkiStat("HUMIDITY", "${current.humidity}%", Modifier.weight(1f))
+                }
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "DOWNTOWN RUIDOSO NM • ELEV 6,920 FT",
                     style = Type.Small.copy(color = Palette.Muted)
                 )
             }
