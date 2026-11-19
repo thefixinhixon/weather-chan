@@ -80,6 +80,7 @@ fun BroadcastScreen(
 
     val calendar = rememberCalendar(refreshToken, calendarUrl)
     val events = calendar.events
+    val ski = rememberSkiApache(refreshToken)
 
     // The lineup is a second focus tree; tearing it down can leave the broadcast with
     // no focused node, and then the D-pad silently stops tuning markets. Ask again
@@ -234,7 +235,7 @@ fun BroadcastScreen(
                             animationSpec = tween(420),
                             label = "segment"
                         ) { current ->
-                            ForecastContent(current, place, state, snapshot, radar)
+                            ForecastContent(current, place, state, snapshot, radar, ski)
                         }
                     } else {
                         val count = events.size
@@ -250,7 +251,11 @@ fun BroadcastScreen(
 
             Spacer(Modifier.height(12.dp))
             TickerBar(
-                text = if (showingWeather) tickerText(snapshot, place) else calendarTicker(events),
+                text = if (showingWeather) {
+                    if (segment == Segment.SKI_APACHE) skiTicker(ski) else tickerText(snapshot, place)
+                } else {
+                    calendarTicker(events)
+                },
                 badge = if (showingWeather) "LOCAL WEATHER" else "COMMUNITY EVENTS",
                 modifier = Modifier.fillMaxWidth()
             )
@@ -288,7 +293,8 @@ private fun ForecastContent(
     place: Place,
     state: WeatherUiState,
     snapshot: WeatherSnapshot?,
-    radar: RadarUiState
+    radar: RadarUiState,
+    ski: com.localonthe8s.tv.data.SkiReport?
 ) {
     val modifier = Modifier.fillMaxSize()
     when (segment) {
@@ -323,6 +329,7 @@ private fun ForecastContent(
         } else {
             SignalPanel(state, modifier)
         }
+        Segment.SKI_APACHE -> SkiApachePanel(ski, modifier)
     }
 }
 
@@ -363,6 +370,18 @@ private fun calendarTicker(events: List<CommunityEvent>): String {
             append(" AT ").append(event.venue.uppercase(Locale.US))
         }
         append("  •  ALL TIMES MOUNTAIN  •  WEATHER FOLLOWS THE CALENDAR")
+    }
+}
+
+private fun skiTicker(ski: com.localonthe8s.tv.data.SkiReport?): String {
+    if (ski == null) return "SKI APACHE LIVE • LINKING MOUNTAIN CAM • SIERRA BLANCA CONDITIONS NEXT"
+    return buildString {
+        append("SKI APACHE LIVE • BASE ")
+        append(ski.baseDepth.ifBlank { "–" }).append("\" • 24H ")
+        append(ski.past24.ifBlank { "–" }).append("\" • LIFTS ")
+        append(ski.openLifts.ifBlank { "–" }).append(" OPEN • TRAILS ")
+        append(ski.openTrails.ifBlank { "–" }).append(" OPEN")
+        if (ski.road.isNotBlank()) append(" • ROAD ").append(ski.road)
     }
 }
 

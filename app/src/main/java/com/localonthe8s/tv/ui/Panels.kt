@@ -56,9 +56,17 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import com.localonthe8s.tv.data.DailyPoint
+import com.localonthe8s.tv.data.EventArtwork
 import com.localonthe8s.tv.data.HourlyPoint
 import com.localonthe8s.tv.data.Observation
+import com.localonthe8s.tv.data.SkiApache
+import com.localonthe8s.tv.data.SkiReport
 import com.localonthe8s.tv.data.StateBorders
 import com.localonthe8s.tv.data.StateOutline
 import com.localonthe8s.tv.data.WeatherSnapshot
@@ -717,5 +725,163 @@ fun SignalPanel(state: WeatherUiState, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.weight(1f))
         Text("NO STORM FATIGUE", style = Type.Small)
+    }
+}
+
+/** Polls the Ski Apache trail-status page; keeps the last good report on failure. */
+@Composable
+fun rememberSkiApache(refreshToken: Int): SkiReport? {
+    var report by remember { mutableStateOf<SkiReport?>(null) }
+    LaunchedEffect(refreshToken) {
+        while (true) {
+            runCatching { SkiApache.fetch() }.onSuccess { report = it }
+            delay(15 * 60 * 1000L)
+        }
+    }
+    return report
+}
+
+/**
+ * Ski Apache live conditions: the mountain-cam still beside the snow numbers
+ * and the lift board. The still reloads on every visit so the picture is at
+ * most one rotation old; a timestamp buster keeps the shared art cache from
+ * serving the previous frame.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SkiApachePanel(report: SkiReport?, modifier: Modifier = Modifier) {
+    PanelFrame(
+        title = "SKI APACHE LIVE",
+        caption = "SIERRA BLANCA • LIVE MOUNTAIN CONDITIONS",
+        modifier = modifier
+    ) {
+        if (report == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("LINKING MOUNTAIN CAM…", style = Type.BodyDim)
+            }
+            return@PanelFrame
+        }
+        Row(Modifier.fillMaxSize()) {
+            var frame by remember { mutableStateOf<ImageBitmap?>(null) }
+            LaunchedEffect(Unit) {
+                val url = SkiApache.SNAPSHOT_URL + "?t=${System.currentTimeMillis()}"
+                frame = EventArtwork.cached(url)?.asImageBitmap()
+                    ?: EventArtwork.load(url)?.asImageBitmap()
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1.15f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Palette.Navy.copy(alpha = 0.45f))
+                    .border(1.dp, Palette.Line.copy(alpha = 0.6f), RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.BottomStart
+            ) {
+                frame?.let {
+                    Image(
+                        bitmap = it,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Text(
+                    text = "● LIVE CAM" + (report.updatedLabel.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""),
+                    style = Type.Small.copy(color = Palette.White),
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .background(Palette.Ink.copy(alpha = 0.72f), RoundedCornerShape(3.dp))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+            Spacer(Modifier.width(18.dp))
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Row(Modifier.fillMaxWidth()) {
+                    SkiStat("24 HR", snowInches(report.past24), Modifier.weight(1f))
+                    SkiStat("48 HR", snowInches(report.past48), Modifier.weight(1f))
+                    SkiStat("BASE", snowInches(report.baseDepth), Modifier.weight(1f))
+                    SkiStat("SEASON", snowInches(report.seasonTotal), Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "LIFTS ${report.openLifts.ifBlank { "–" }} OPEN" +
+                        " • TRAILS ${report.openTrails.ifBlank { "–" }} OPEN",
+                    style = Type.Body.copy(fontWeight = FontWeight.Bold, color = Palette.Cyan)
+                )
+                Spacer(Modifier.height(8.dp))
+                Column(Modifier.weight(1f)) {
+                    report.lifts.forEach { lift ->
+                        LiftCell(lift, Modifier.fillMaxWidth())
+                    }
+                }
+                if (report.activities.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = report.activities.joinToString(" • ") { "${it.name} ${it.status}" },
+                        style = Type.Small,
+                        maxLines = 1,
+                        modifier = Modifier.basicMarquee()
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "ROAD ${report.road.ifBlank { "–" }} • SKIAPACHE.COM",
+                    style = Type.Small.copy(color = Palette.Muted)
+                )
+            }
+        }
+    }
+}
+
+private fun snowInches(value: String): String =
+    if (value.isBlank()) "–" else "$value\""
+
+@Composable
+private fun SkiStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .padding(end = 8.dp)
+            .background(Palette.Navy.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text(label, style = Type.Small)
+        Spacer(Modifier.height(1.dp))
+        Text(
+            value.uppercase(),
+            style = Type.Body.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun LiftCell(lift: com.localonthe8s.tv.data.LiftStatus, modifier: Modifier = Modifier) {
+    // Eight lifts share the board with the snow tiles, so rows stay compact.
+    val cellStyle = Type.Small.copy(fontSize = 12.sp)
+    Row(
+        modifier = modifier.padding(end = 10.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(7.dp)
+                .background(if (lift.open) Palette.Green else Palette.Red, CircleShape)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = lift.name,
+            style = cellStyle,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = lift.status,
+            style = cellStyle.copy(
+                color = if (lift.open) Palette.Green else Palette.Muted,
+                fontWeight = FontWeight.Bold
+            )
+        )
     }
 }
