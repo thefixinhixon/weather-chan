@@ -25,9 +25,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -193,6 +196,8 @@ private fun EventArtworkPane(event: CommunityEvent, modifier: Modifier = Modifie
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+        } else if (isGreenery) {
+            GreeneryFlyer(event, Modifier.fillMaxSize())
         } else {
             Box(
                 Modifier
@@ -206,18 +211,161 @@ private fun EventArtworkPane(event: CommunityEvent, modifier: Modifier = Modifie
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        event.monthLabel.ifBlank { if (isGreenery) "GREEN" else "RUID" },
+                        event.monthLabel.ifBlank { "RUID" },
                         style = Type.Kicker.copy(color = Palette.Amber)
                     )
                     Text(
-                        event.dayLabel.ifBlank { if (isGreenery) "G" else "OSO" },
+                        event.dayLabel.ifBlank { "OSO" },
                         style = Type.Hero.copy(fontSize = 84.sp, color = Palette.White.copy(alpha = 0.85f))
                     )
-                    Text(if (isGreenery) "THE GREENERY ROOM" else "DISCOVERRUIDOSO", style = Type.Small)
+                    Text("DISCOVERRUIDOSO", style = Type.Small)
                 }
             }
         }
         }
+    }
+}
+
+/**
+ * Bundled flyer for Greenery Room .ics events, which ship without ATTACH images.
+ * Renders offline per-event artwork (bingo card / film strip / closed sign /
+ * pop-up leaf) so ICS cards never fall back to the bare date placeholder.
+ */
+@Composable
+private fun GreeneryFlyer(event: CommunityEvent, modifier: Modifier = Modifier) {
+    val title = event.title.uppercase(java.util.Locale.US)
+    val kind = when {
+        title.contains("BINGO") -> FlyerKind.BINGO
+        title.contains("MOVIE") -> FlyerKind.MOVIE
+        title.contains("CLOSED") -> FlyerKind.CLOSED
+        title.contains("POP") || title.contains("PURE") || title.contains("TAKEOVER") -> FlyerKind.POPUP
+        else -> FlyerKind.GENERAL
+    }
+    val bg = when (kind) {
+        FlyerKind.MOVIE -> listOf(Color(0xFF3B1D5E), Color(0xFF0E1A3D))
+        FlyerKind.BINGO -> listOf(Color(0xFF0C4A3E), Color(0xFF082A24))
+        FlyerKind.CLOSED -> listOf(Color(0xFF5E1D1D), Color(0xFF2A0E0E))
+        FlyerKind.POPUP -> listOf(Color(0xFF1D4A1E), Color(0xFF0B2410))
+        FlyerKind.GENERAL -> listOf(Color(0xFF14532D), Color(0xFF071A10))
+    }
+    Box(
+        modifier
+            .background(Brush.linearGradient(bg))
+            .border(1.dp, Palette.Amber.copy(alpha = 0.55f), RoundedCornerShape(6.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            // Dotted lounge-light texture behind the flyer copy.
+            val dot = Color.White.copy(alpha = 0.07f)
+            var y = 0f
+            var row = 0
+            while (y < size.height) {
+                var x = if (row % 2 == 0) 0f else 28f
+                while (x < size.width) {
+                    drawCircle(dot, 3.2f, Offset(x, y))
+                    x += 56f
+                }
+                y += 52f
+                row++
+            }
+            // Gold marquee rails top and bottom.
+            drawRect(
+                Palette.Amber.copy(alpha = 0.85f),
+                topLeft = Offset(0f, 0f),
+                size = androidx.compose.ui.geometry.Size(size.width, 6f)
+            )
+            drawRect(
+                Palette.Amber.copy(alpha = 0.85f),
+                topLeft = Offset(0f, size.height - 6f),
+                size = androidx.compose.ui.geometry.Size(size.width, 6f)
+            )
+        }
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("THE GREENERY ROOM", style = Type.Kicker.copy(color = Palette.Amber))
+            Spacer(Modifier.height(6.dp))
+            Text(
+                when (kind) {
+                    FlyerKind.BINGO -> "B • I • N • G • O"
+                    FlyerKind.MOVIE -> "▸ NOW SHOWING ◂"
+                    FlyerKind.CLOSED -> "• HOLIDAY HOURS •"
+                    FlyerKind.POPUP -> "◈ LOUNGE TAKEOVER ◈"
+                    FlyerKind.GENERAL -> "✦ RUIDOSO • NM ✦"
+                },
+                style = Type.Small.copy(color = Palette.White.copy(alpha = 0.85f))
+            )
+            Spacer(Modifier.height(10.dp))
+            // Bingo card grid doubles as the flyer visual for bingo nights.
+            if (kind == FlyerKind.BINGO) {
+                BingoGrid(Modifier.align(Alignment.CenterHorizontally))
+                Spacer(Modifier.height(10.dp))
+            }
+            if (kind == FlyerKind.MOVIE) {
+                FilmStrip(Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+            }
+            Text(
+                event.title.uppercase(java.util.Locale.US),
+                style = Type.Body.copy(
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Palette.White
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                (event.timeLabel + " • " + event.dateLabel).uppercase(java.util.Locale.US),
+                style = Type.Small.copy(color = Palette.Cyan),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.weight(1f))
+            Text("MIDTOWN • ALTO • CARRIZOZO", style = Type.Small.copy(color = Palette.Amber))
+        }
+    }
+}
+
+private enum class FlyerKind { BINGO, MOVIE, CLOSED, POPUP, GENERAL }
+
+@Composable
+private fun BingoGrid(modifier: Modifier = Modifier) {
+    val free = listOf("B", "I", "N", "G", "O")
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        free.forEachIndexed { i, letter ->
+            Box(
+                Modifier
+                    .padding(horizontal = 4.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(if (i == 2) Palette.Amber else Palette.White.copy(alpha = 0.92f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    letter,
+                    style = Type.Small.copy(
+                        color = Palette.Ink,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilmStrip(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color.Black.copy(alpha = 0.55f))
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("◼ ◼ ◼  FILM  ◼ ◼ ◼", style = Type.Small.copy(color = Palette.White.copy(alpha = 0.9f)))
     }
 }
 
