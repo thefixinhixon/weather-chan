@@ -26,6 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -379,6 +383,7 @@ private fun FilmStrip(modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EventDetails(
     event: CommunityEvent,
@@ -435,7 +440,8 @@ private fun EventDetails(
             text = "• ${event.venue.uppercase(Locale.US)}",
             style = Type.Kicker,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.basicMarquee()
         )
 
         if (event.category != null) {
@@ -445,14 +451,29 @@ private fun EventDetails(
 
         Spacer(Modifier.height(16.dp))
 
+        // Long descriptions gently scroll top-to-bottom on a loop so the
+        // whole text is readable without touching the remote.
+        val detailScroll = remember(event.id) { ScrollState(0) }
+        LaunchedEffect(event.id) {
+            delay(3000)
+            while (true) {
+                if (detailScroll.maxValue > 0) {
+                    detailScroll.animateScrollTo(detailScroll.maxValue)
+                    delay(3000)
+                    detailScroll.animateScrollTo(0)
+                    delay(3000)
+                } else {
+                    delay(4000)
+                }
+            }
+        }
         Text(
             text = event.description.uppercase(Locale.US),
             style = Type.BodyDim.copy(fontSize = 14.sp, letterSpacing = 1.sp),
-            maxLines = 5,
-            overflow = TextOverflow.Ellipsis
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(detailScroll)
         )
-
-        Spacer(Modifier.weight(1f))
 
         Row(
             Modifier.fillMaxWidth(),
