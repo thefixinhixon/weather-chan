@@ -1,7 +1,8 @@
-# Ruidoso Local
+# The Greenery Room — Ruidoso Local
 
-A native Google TV / Android TV app: a cool local events channel for Ruidoso
-that also shows weather. The community calendar plays first, then the local
+A native Google TV / Android TV app: the in-lounge display for The Greenery Room
+cannabis lounge in Ruidoso — a cool local events channel that also shows
+weather. The community calendar plays first, then the local
 weather runs once through every town, then it is back to events — with a
 smooth-jazz radio stream that never stops.
 
@@ -14,8 +15,10 @@ smooth-jazz radio stream that never stops.
   last good listings if the site cannot be reached. Smooth jazz plays throughout.
 - **Your own events too** – link any public Google Calendar (Settings → Integrate
   calendar → Public iCal address) from the setup screen and those events merge
-  into the same slideshow, tagged `MY CALENDAR`. Unlink any time to go back to
-  DiscoverRuidoso only.
+  into the same slideshow, tagged `MY CALENDAR` (bundled Greenery Room events are
+  tagged `GREENERY ROOM`). Image attachments (`ATTACH`) and pasted image links in
+  the event description show as the event flyer art, including Google Drive share
+  links. Unlink any time to go back to DiscoverRuidoso only.
 - **Local weather after the events** – once the slideshow has played through all
   events, the channel runs one full weather rotation per town: current conditions,
   regional observations, 7-day outlook, hourly forecast, radar and almanac

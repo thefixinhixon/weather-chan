@@ -67,16 +67,17 @@ fun rememberCalendar(refreshToken: Int, calendarUrl: String = ""): CalendarState
     LaunchedEffect(refreshToken, calendarUrl) {
         while (true) {
             try {
-                val discover = try {
-                    EventsFeed.fetch()
-                } catch (failure: Exception) {
-                    if (state.events.isEmpty()) throw failure
-                    state.events.filterNot { it.id.startsWith("gcal-") }
-                }
-                // The shipped local-events.ics base plus the optional linked Google feed.
+                // The shipped Greenery Room base calendar loads first so the screen
+                // is never blank while the network feed is still linking.
                 val bundled = runCatching {
                     com.localonthe8s.tv.data.GoogleCalendar.loadBundled(context)
                 }.getOrDefault(emptyList())
+                val discover = try {
+                    EventsFeed.fetch()
+                } catch (failure: Exception) {
+                    val keep = state.events.filterNot { it.id.startsWith("gcal-") }
+                    if (keep.isNotEmpty()) keep else if (bundled.isNotEmpty()) emptyList() else throw failure
+                }
                 val mine = if (calendarUrl.isNotBlank()) {
                     runCatching { com.localonthe8s.tv.data.GoogleCalendar.fetch(calendarUrl) }
                         .getOrDefault(emptyList())
@@ -128,9 +129,9 @@ fun EventsPanel(
     PanelFrame(
         title = "COMMUNITY CALENDAR",
         caption = if (total > 0) {
-            "$total UPCOMING • RUIDOSO, NM • ALL TIMES MOUNTAIN"
+            "$total UPCOMING • THE GREENERY ROOM • ALL TIMES MOUNTAIN"
         } else {
-            "RUIDOSO, NM • ${EventsFeed.CALENDAR_URL.removePrefix("https://").removePrefix("www.")}"
+            "THE GREENERY ROOM • RUIDOSO, NM"
         },
         modifier = modifier
     ) {
@@ -156,7 +157,7 @@ fun EventsPanel(
             }
             state.error != null -> CalendarDown(state.error)
             else -> Text(
-                "PULLING THE EVENTS CALENDAR • DISCOVERRUIDOSO.COM",
+                "PULLING THE GREENERY ROOM CALENDAR • EVENTS APPEAR HERE",
                 style = Type.BodyDim
             )
         }
@@ -170,11 +171,11 @@ private fun EventArtworkPane(event: CommunityEvent, modifier: Modifier = Modifie
     LaunchedEffect(event.id) {
         val url = event.artworkUrl ?: return@LaunchedEffect
         bitmap = EventArtwork.cached(url)?.asImageBitmap() ?: EventArtwork.load(url)?.asImageBitmap()
-    }
-
-    // Event flyers are 16:9. Box them at that shape and centre them in the pane so
-    // artwork keeps its whole picture instead of being cropped to a square.
-    Box(modifier, contentAlignment = Alignment.Center) {
+    }        // Google Calendar ATTACH art and DiscoverRuidoso thumbs share this pane.
+        // Event flyers are 16:9. Box them at that shape and centre them in the pane so
+        // artwork keeps its whole picture instead of being cropped to a square.
+        val isGreenery = event.id.startsWith("gcal-")
+        Box(modifier, contentAlignment = Alignment.Center) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -205,14 +206,14 @@ private fun EventArtworkPane(event: CommunityEvent, modifier: Modifier = Modifie
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        event.monthLabel.ifBlank { "RUID" },
+                        event.monthLabel.ifBlank { if (isGreenery) "GREEN" else "RUID" },
                         style = Type.Kicker.copy(color = Palette.Amber)
                     )
                     Text(
-                        event.dayLabel.ifBlank { "OSO" },
+                        event.dayLabel.ifBlank { if (isGreenery) "G" else "OSO" },
                         style = Type.Hero.copy(fontSize = 84.sp, color = Palette.White.copy(alpha = 0.85f))
                     )
-                    Text("DISCOVERRUIDOSO", style = Type.Small)
+                    Text(if (isGreenery) "THE GREENERY ROOM" else "DISCOVERRUIDOSO", style = Type.Small)
                 }
             }
         }
@@ -322,7 +323,7 @@ private fun CalendarDown(error: String) {
         Spacer(Modifier.height(14.dp))
         Text(error.uppercase(Locale.US), style = Type.Body)
         Spacer(Modifier.height(12.dp))
-        Text(                "DISCOVERRUIDOSO.COM COULD NOT BE REACHED. IT RETRIES EVERY 15 MINUTES " +
+        Text(                "THE CALENDAR FEED COULD NOT BE REACHED. IT RETRIES EVERY 15 MINUTES " +
                 "AND THE LOCAL WEATHER STILL FOLLOWS THE EVENTS.",
             style = Type.BodyDim
         )

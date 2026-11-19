@@ -34,7 +34,7 @@ object GoogleCalendar {
         bundled?.let { return@withContext it }
         val parsed = runCatching {
             val text = context.assets.open(ASSET_NAME).bufferedReader().use { it.readText() }
-            parse(text)
+            parse(text, category = "GREENERY ROOM")
         }.getOrDefault(emptyList())
         bundled = parsed
         parsed
@@ -42,7 +42,7 @@ object GoogleCalendar {
 
     suspend fun fetch(icsUrl: String): List<CommunityEvent> = withContext(Dispatchers.IO) {
         if (icsUrl.isBlank()) return@withContext emptyList()
-        parse(httpGetText(icsUrl.trim()))
+        parse(httpGetText(icsUrl.trim()), category = "MY CALENDAR")
     }
 
     private fun todayStart(): Date {
@@ -55,7 +55,7 @@ object GoogleCalendar {
         return cal.time
     }
 
-    private fun parse(ics: String): List<CommunityEvent> {
+    private fun parse(ics: String, category: String = "MY CALENDAR"): List<CommunityEvent> {
         // Unfold RFC 5545 line continuations, then split into VEVENT blocks.
         val unfolded = ics.replace("\r\n ", "").replace("\n ", "")
         val raws = unfolded.split("BEGIN:VEVENT").drop(1).mapNotNull { block ->
@@ -67,7 +67,7 @@ object GoogleCalendar {
         val out = ArrayList<CommunityEvent>()
         byUid.forEach { (_, group) ->
             val base = group.firstOrNull { it.recurrenceId == null } ?: return@forEach
-            out += expand(base, group.filter { it.recurrenceId != null })
+            out += expand(base, group.filter { it.recurrenceId != null }, category)
         }
         return out
             .sortedWith(compareBy({ it.startsOn }, { it.timeLabel }, { it.title }))
@@ -84,7 +84,8 @@ object GoogleCalendar {
         val endRaw: String?,
         val rrule: String?,
         val exdates: List<String>,
-        val recurrenceId: String?
+        val recurrenceId: String?,
+        val attachments: List<String> = emptyList()
     )
 
     private fun parseBlock(body: String): RawEvent? {
@@ -131,6 +132,12 @@ object GoogleCalendar {
             .filter { it.key.startsWith("EXDATE") }
             .flatMap { (name, values) -> values.split(',').map { v -> "$name:$v" } }
         val recurrenceEntry = full.entries.firstOrNull { it.key.startsWith("RECURRENCE-ID") }
+        // Google Calendar "Add attachment" exports as ATTACH;FMTTYPE=image/...:https://...
+        // Keep every http(s) attach; image types (or image extensions) win later.
+        val attachments = full.entries
+            .filter { it.key.startsWith("ATTACH") }
+            .map { it.value.trim() }
+            .filter { it.startsWith("http://") || it.startsWith("https://") }
         return RawEvent(
             uid = params["UID"]?.trim().orEmpty().ifBlank { return null },
             summary = params["SUMMARY"]?.trim(),
@@ -140,13 +147,14 @@ object GoogleCalendar {
             endRaw = endEntry?.let { "${it.key}:${it.value}" },
             rrule = params["RRULE"]?.trim(),
             exdates = exdates,
-            recurrenceId = recurrenceEntry?.let { "${it.key}:${it.value}" }
+            recurrenceId = recurrenceEntry?.let { "${it.key}:${it.value}" },
+            attachments = attachments
         )
     }
 
     private data class Moment(val date: Date, val tz: TimeZone, val allDay: Boolean)
 
-    private fun expand(base: RawEvent, overrides: List<RawEvent>): List<CommunityEvent> {
+    private fun expand(base: RawEvent, overrides: List<RawEvent>, category: String): List<CommunityEvent> {
         val start = parseMoment(base.startRaw) ?: return emptyList()
         val end = base.endRaw?.let { parseMoment(it) }
         val durationMillis = if (end != null) {
@@ -177,15 +185,21 @@ object GoogleCalendar {
             val effective = overrideByMillis[occurrence]
             val summary = (effective?.summary ?: base.summary)?.takeIf { !it.isNullOrBlank() }
                 ?: return@mapNotNull null
+            val description = effective?.description ?: base.description
+            val artwork = pickArtwork(effective?.attachments ?: emptyList())
+                ?: pickArtwork(base.attachments)
+                ?: inlineImage(description)
             buildEvent(
                 summary = summary,
                 location = effective?.location ?: base.location,
-                description = effective?.description ?: base.description,
+                description = description,
                 uid = base.uid,
                 startMillis = occurrence,
                 durationMillis = durationMillis,
                 tz = start.tz,
-                allDay = start.allDay
+                allDay = start.allDay,
+                artworkUrl = artwork,
+                category = category
             )
         }
     }
@@ -270,6 +284,33 @@ object GoogleCalendar {
         return out
     }
 
+    /** First image attach wins; otherwise the first http attach (usually Drive). */
+    private fun pickArtwork(urls: List<String>): String? {
+        if (urls.isEmpty()) return null
+        val image = urls.firstOrNull { looksLikeImage(it) }
+        return image ?: urls.firstOrNull()
+    }
+
+    private fun looksLikeImage(url: String): Boolean {
+        val lower = url.lowercase(Locale.US)
+        return lower.contains("image/") ||
+            lower.contains("lh3.googleusercontent.com") ||
+            lower.contains("drive.google.com") ||
+            lower.contains("docs.google.com") ||
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg") ||
+            lower.endsWith(".png") || lower.endsWith(".webp") ||
+            lower.endsWith(".gif") ||
+            lower.contains(".jpg?") || lower.contains(".png?") || lower.contains(".webp?")
+    }
+
+    private val INLINE_IMAGE = Regex("https?://[^\\s\"'<>]+\\.(jpg|jpeg|png|webp|gif)(\\?[^\\s\"'<>]*)?", RegexOption.IGNORE_CASE)
+
+    /** A pasted image link inside DESCRIPTION doubles as flyer art. */
+    private fun inlineImage(description: String?): String? {
+        if (description.isNullOrBlank()) return null
+        return INLINE_IMAGE.find(description)?.value
+    }
+
     private fun buildEvent(
         summary: String,
         location: String?,
@@ -278,7 +319,9 @@ object GoogleCalendar {
         startMillis: Long,
         durationMillis: Long,
         tz: TimeZone,
-        allDay: Boolean
+        allDay: Boolean,
+        artworkUrl: String?,
+        category: String
     ): CommunityEvent {
         val denver = TimeZone.getTimeZone("America/Denver")
         val start = Date(startMillis)
@@ -297,7 +340,7 @@ object GoogleCalendar {
         }.uppercase(Locale.US)
 
         val cleanLocation = cleanText(location)
-            ?.takeIf { it.isNotBlank() } ?: "RUIDOSO, NM"
+            ?.takeIf { it.isNotBlank() } ?: "THE GREENERY ROOM • RUIDOSO, NM"
         val cleanDescription = cleanText(description).orEmpty().take(420)
         return CommunityEvent(
             id = "gcal-$uid-$day",
@@ -307,9 +350,9 @@ object GoogleCalendar {
             dateLabel = dateFmt.format(start).uppercase(Locale.US),
             timeLabel = timeLabel,
             venue = cleanLocation,
-            category = "MY CALENDAR",
+            category = category,
             description = cleanDescription.ifBlank { "ADDED FROM THE LOCAL CALENDAR • ALL TIMES MOUNTAIN" },
-            artworkUrl = null,
+            artworkUrl = artworkUrl,
             startsOn = day
         )
     }

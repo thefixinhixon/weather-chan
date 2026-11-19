@@ -89,9 +89,9 @@ fun SetupScreen(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(48.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("RUIDOSO LOCAL", style = Type.Brand)
+                Text("THE GREENERY ROOM", style = Type.Brand)
                 Spacer(Modifier.width(18.dp))
-                Text("CHANNEL SETUP", style = Type.Kicker)
+                Text("CHANNEL SETUP • RUIDOSO LOCAL", style = Type.Kicker)
                 Spacer(Modifier.weight(1f))
                 Text(musicLabel, style = Type.Small)
             }
@@ -155,7 +155,7 @@ fun SetupScreen(
                     Text("MY CALENDAR", style = Type.Small)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = if (calendarUrl.isBlank()) "LOCAL FILE + DISCOVERRUIDOSO" else "GOOGLE LINKED • ${calendarUrl.take(38)}…",
+                        text = if (calendarUrl.isBlank()) "GREENERY ROOM FILE + DISCOVERRUIDOSO" else "GOOGLE LINKED • ${calendarUrl.take(38)}…",
                         style = Type.Small,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis

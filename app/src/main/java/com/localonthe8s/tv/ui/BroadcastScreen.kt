@@ -215,7 +215,7 @@ fun BroadcastScreen(
                 kicker = if (showingWeather) {
                     place.displayName.uppercase(Locale.US)
                 } else {
-                    "COMMUNITY CALENDAR • RUIDOSO, NM"
+                    "RUIDOSO LOCAL • COMMUNITY CALENDAR"
                 }
             )
             Spacer(Modifier.height(10.dp))
@@ -351,10 +351,10 @@ private fun MarketBanner(place: Place, channel: Int, total: Int, modifier: Modif
 
 private fun calendarTicker(events: List<CommunityEvent>): String {
     if (events.isEmpty()) {
-        return "PULLING THE COMMUNITY CALENDAR • JAZZ KEEPS PLAYING • LOCAL WEATHER FOLLOWS THE EVENTS"
+        return "PULLING THE GREENERY ROOM CALENDAR • JAZZ KEEPS PLAYING • LOCAL WEATHER FOLLOWS THE EVENTS"
     }
     return buildString {
-        append("RUIDOSO EVENTS • ")
+        append("THE GREENERY ROOM • RUIDOSO EVENTS • ")
         events.take(3).forEachIndexed { index, event ->
             if (index > 0) append("  •  ")
             append(event.dateLabel.uppercase(Locale.US))

@@ -1,7 +1,8 @@
-# AGENTS.md — Ruidoso Local (Android TV)
+# AGENTS.md — The Greenery Room (Ruidoso Local, Android TV)
 
-A native Google TV / Android TV app (`com.localonthe8s.tv`): a cool local
-events channel for Ruidoso that also shows weather. Events slideshow first,
+A native Google TV / Android TV app (`com.localonthe8s.tv`): the in-lounge
+display for The Greenery Room cannabis lounge in Ruidoso — a cool local
+events channel that also shows weather. Events slideshow first,
 then one full weather rotation per town, then back to events. Smooth jazz
 throughout. Kotlin + Jetpack Compose, single `MainActivity`, no backend, no
 API keys.
@@ -79,8 +80,10 @@ app/src/main/java/com/localonthe8s/tv/
 - Key handling: guard `FocusButton` clicks with
   `event.nativeKeyEvent.repeatCount == 0` — a held OK otherwise auto-fires,
   and on REMOVE that silently eats the whole lineup.
-- Calendar: `rememberCalendar(refreshToken, calendarUrl)` merges DiscoverRuidoso
-  + Google Calendar (`GoogleCalendar.fetch`), sorted by date, capped at
+-Calendar: `rememberCalendar(refreshToken, calendarUrl)` merges the bundled
+Greenery Room ICS + DiscoverRuidoso + Google Calendar (`GoogleCalendar.fetch`),
+with Google `ATTACH` image URLs and inline image links shown as event artwork,
+sorted by date, capped at
   `MAX_EVENTS=60`, refreshed every 15 min. On failure keep the last good list,
   show `CALENDAR FEED RETRYING`, never blank the screen.
 - ICS link UX: Setup → LINK GOOGLE CALENDAR opens `CalendarKeypad` (D-pad grid

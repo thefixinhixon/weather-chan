@@ -156,16 +156,17 @@ object EventsFeed {
 }
 
 /**
- * Event thumbnails off the Squarespace CDN, decoded once and kept for the next few
- * slides. The full-size originals are several megapixels, so the CDN is asked for a
- * screen-sized render instead.
+ * Event artwork: DiscoverRuidoso thumbnails off the Squarespace CDN plus Google
+ * Calendar ATTACH images (direct links, Drive shares, googleusercontent). Decoded
+ * once and kept for the next few slides. Squarespace full-size originals are
+ * several megapixels, so the CDN is asked for a screen-sized render instead.
  */
 object EventArtwork {
 
-    private const val MAX_CACHED = 6
+    private const val MAX_CACHED = 12
     private const val RENDER_WIDTH = 1500
 
-    private val cache = object : LinkedHashMap<String, Bitmap>(8, 0.75f, true) {
+    private val cache = object : LinkedHashMap<String, Bitmap>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>): Boolean =
             size > MAX_CACHED
     }
@@ -179,6 +180,7 @@ object EventArtwork {
                 val connection = (URL(render(url)).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 12_000
                     readTimeout = 20_000
+                    instanceFollowRedirects = true
                     setRequestProperty("Accept", "image/*")
                     setRequestProperty("User-Agent", EventsFeed.BROWSER_AGENT)
                 }
@@ -194,6 +196,29 @@ object EventArtwork {
         return bitmap
     }
 
-    private fun render(url: String): String =
-        if (url.contains("format=")) url else "$url?format=${RENDER_WIDTH}w"
+    /** Drive share links are pages, not bytes — rewrite to the direct view form. */
+    internal fun render(url: String): String {
+        driveDirect(url)?.let { return it }
+        // Squarespace CDN sizing only; every other host is fetched as-is.
+        if (url.contains("images.squarespace-cdn.com")) {
+            return if (url.contains("format=")) url else "$url?format=${RENDER_WIDTH}w"
+        }
+        return url
+    }
+
+    private fun driveDirect(url: String): String? {
+        // https://drive.google.com/file/d/ID/view?... -> uc?export=view&id=ID
+        val fileMatch = Regex("drive\\.google\\.com/file/d/([^/]+)").find(url)
+        if (fileMatch != null) {
+            return "https://drive.google.com/uc?export=view&id=${fileMatch.groupValues[1]}"
+        }
+        // https://drive.google.com/open?id=ID
+        val openMatch = Regex("[?&]id=([\\w-]{10,})").find(url)
+        if (url.contains("drive.google.com/open")) {
+            if (openMatch != null) {
+                return "https://drive.google.com/uc?export=view&id=${openMatch.groupValues[1]}"
+            }
+        }
+        return null
+    }
 }

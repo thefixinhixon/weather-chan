@@ -92,13 +92,13 @@ fun BroadcastHeader(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(Palette.Amber, RoundedCornerShape(4.dp)),
+                        .background(Palette.Green, RoundedCornerShape(4.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("R", style = Type.Brand.copy(color = Palette.Ink, letterSpacing = 0.sp))
+                    Text("G", style = Type.Brand.copy(color = Palette.Ink, letterSpacing = 0.sp))
                 }
                 Spacer(Modifier.width(12.dp))
-                Text("RUIDOSO LOCAL", style = Type.Brand)
+                Text("THE GREENERY ROOM", style = Type.Brand)
             }
             Spacer(Modifier.height(4.dp))
             Text(kicker, style = Type.Kicker)

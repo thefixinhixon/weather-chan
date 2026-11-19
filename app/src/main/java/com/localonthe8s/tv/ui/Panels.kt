@@ -75,11 +75,12 @@ import kotlin.random.Random
 
 @Composable
 fun OpeningPanel(place: com.localonthe8s.tv.data.Place, snapshot: WeatherSnapshot?, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {                Text(
-                    text = "RUIDOSO LOCAL",
-                    style = Type.Brand.copy(fontSize = 66.sp, letterSpacing = 12.sp)
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {            Column(horizontalAlignment = Alignment.CenterHorizontally) {                Text(
+                    text = "THE GREENERY ROOM",
+                    style = Type.Brand.copy(fontSize = 58.sp, letterSpacing = 8.sp)
                 )
+                Spacer(Modifier.height(6.dp))
+                Text("RUIDOSO LOCAL", style = Type.Kicker.copy(letterSpacing = 6.sp))
             Spacer(Modifier.height(18.dp))
             Text(place.displayName.uppercase(), style = Type.TempMid.copy(color = Palette.Cyan))
             Spacer(Modifier.height(28.dp))
@@ -521,7 +522,7 @@ fun AlmanacPanel(snapshot: WeatherSnapshot, modifier: Modifier = Modifier) {
                 Spacer(Modifier.height(8.dp))
                 Text("SMOOTH JAZZ CONTINUES OVER THE RADAR LOOP.", style = Type.BodyDim)
                 Spacer(Modifier.height(8.dp))
-                Text("RUIDOSO LOCAL • WEATHERSTAR III", style = Type.Small)
+                Text("THE GREENERY ROOM • RUIDOSO, NM", style = Type.Small)
             }
         }
     }
