@@ -12,11 +12,11 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * Keyless reader for public Google Calendar .ics feeds, plus the bundled
- * `local-events.ics` base calendar that ships in assets. Paste the "Public
- * address in iCal format" (Calendar settings -> Integrate calendar) into the
- * lineup screen and those events merge with the bundled file and the
- * DiscoverRuidoso slideshow. No API key, no account — just static .ics.
+ * Keyless reader for the Greenery Room's public Google Calendar .ics feed,
+ * plus the bundled `local-events.ics` snapshot that ships in assets as an
+ * offline fallback. Pasting a different "Public address in iCal format"
+ * into the lineup screen replaces the Greenery feed with that calendar.
+ * No API key, no account — just static .ics.
  *
  * Google exports recurring events as one VEVENT with an RRULE (weekly Movie
  * Day, Thursday Bingo...) plus EXDATEs and RECURRENCE-ID overrides, so the
@@ -26,6 +26,10 @@ object GoogleCalendar {
 
     private const val HORIZON_DAYS = 180
     private const val ASSET_NAME = "local-events.ics"
+
+    /** The Greenery Room's public "Integrate calendar" iCal address (live source). */
+    const val DEFAULT_ICS_URL =
+        "https://calendar.google.com/calendar/ical/8f434d262280a0a3363ecf962216c2ded1d8551c496090996508588bc0a0f45f@group.calendar.google.com/public/basic.ics"
 
     private var bundled: List<CommunityEvent>? = null
 
@@ -40,10 +44,11 @@ object GoogleCalendar {
         parsed
     }
 
-    suspend fun fetch(icsUrl: String): List<CommunityEvent> = withContext(Dispatchers.IO) {
-        if (icsUrl.isBlank()) return@withContext emptyList()
-        parse(httpGetText(icsUrl.trim()), category = "MY CALENDAR")
-    }
+    suspend fun fetch(icsUrl: String, category: String = "MY CALENDAR"): List<CommunityEvent> =
+        withContext(Dispatchers.IO) {
+            if (icsUrl.isBlank()) return@withContext emptyList()
+            parse(httpGetText(icsUrl.trim()), category = category)
+        }
 
     private fun todayStart(): Date {
         val denver = TimeZone.getTimeZone("America/Denver")

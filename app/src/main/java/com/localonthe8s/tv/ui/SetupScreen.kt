@@ -155,14 +155,14 @@ fun SetupScreen(
                     Text("MY CALENDAR", style = Type.Small)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = if (calendarUrl.isBlank()) "GREENERY ROOM FILE + DISCOVERRUIDOSO" else "GOOGLE LINKED • ${calendarUrl.take(38)}…",
+                        text = if (calendarUrl.isBlank()) "GREENERY ROOM LIVE + DISCOVERRUIDOSO" else "GOOGLE LINKED • ${calendarUrl.take(38)}…",
                         style = Type.Small,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(8.dp))
                     FocusButton(
-                        label = if (calendarUrl.isBlank()) "LINK GOOGLE CALENDAR" else "CHANGE CALENDAR LINK",
+                        label = if (calendarUrl.isBlank()) "LINK CUSTOM CALENDAR" else "CHANGE CALENDAR LINK",
                         onClick = {
                             calendarMessage = null
                             showCalendarPad = true

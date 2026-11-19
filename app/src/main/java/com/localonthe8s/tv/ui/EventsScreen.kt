@@ -58,9 +58,11 @@ data class CalendarState(
 )
 
 /**
- * Pulls DiscoverRuidoso + the optional Google Calendar .ics on launch, on manual
+ * Pulls DiscoverRuidoso + the live Greenery Room .ics on launch, on manual
  * refresh and every fifteen minutes. A refresh that fails keeps the listings
  * already on screen, so the slideshow never goes blank between polls.
+ * The bundled asset is offline fallback only; the live feed wins whenever
+ * it answers so new calendar attachments appear without a rebuild.
  */
 @Composable
 fun rememberCalendar(refreshToken: Int, calendarUrl: String = ""): CalendarState {
@@ -70,24 +72,31 @@ fun rememberCalendar(refreshToken: Int, calendarUrl: String = ""): CalendarState
     LaunchedEffect(refreshToken, calendarUrl) {
         while (true) {
             try {
-                // The shipped Greenery Room base calendar loads first so the screen
-                // is never blank while the network feed is still linking.
-                val bundled = runCatching {
-                    com.localonthe8s.tv.data.GoogleCalendar.loadBundled(context)
+                // Live Greenery Room feed first; the bundled asset only fills in
+                // when the network is unreachable so the screen is never blank.
+                // A pasted custom URL replaces the Greenery feed, not both.
+                val (liveUrl, liveCategory) = if (calendarUrl.isNotBlank()) {
+                    calendarUrl to "MY CALENDAR"
+                } else {
+                    com.localonthe8s.tv.data.GoogleCalendar.DEFAULT_ICS_URL to "GREENERY ROOM"
+                }
+                val live = runCatching {
+                    com.localonthe8s.tv.data.GoogleCalendar.fetch(liveUrl, liveCategory)
                 }.getOrDefault(emptyList())
+                val bundled = if (live.isNotEmpty()) {
+                    emptyList()
+                } else {
+                    runCatching {
+                        com.localonthe8s.tv.data.GoogleCalendar.loadBundled(context)
+                    }.getOrDefault(emptyList())
+                }
                 val discover = try {
                     EventsFeed.fetch()
                 } catch (failure: Exception) {
                     val keep = state.events.filterNot { it.id.startsWith("gcal-") }
-                    if (keep.isNotEmpty()) keep else if (bundled.isNotEmpty()) emptyList() else throw failure
+                    if (keep.isNotEmpty()) keep else if (bundled.isNotEmpty() || live.isNotEmpty()) emptyList() else throw failure
                 }
-                val mine = if (calendarUrl.isNotBlank()) {
-                    runCatching { com.localonthe8s.tv.data.GoogleCalendar.fetch(calendarUrl) }
-                        .getOrDefault(emptyList())
-                } else {
-                    emptyList()
-                }
-                val merged = (bundled + mine + discover)
+                val merged = (live + bundled + discover)
                     .distinctBy { it.id }
                     .sortedWith(compareBy({ it.startsOn }, { it.timeLabel }, { it.title }))
                     .take(com.localonthe8s.tv.data.EventsFeed.MAX_EVENTS)

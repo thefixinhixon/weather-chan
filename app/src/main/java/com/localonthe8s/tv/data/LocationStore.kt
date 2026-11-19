@@ -69,7 +69,7 @@ class LocationStore(context: Context) {
             prefs.edit().putString(KEY_STATION, value.name).apply()
         }
 
-    /** Public Google Calendar .ics URL merged into the community calendar (empty = off). */
+    /** Custom .ics URL replacing the live Greenery Room feed (empty = Greenery live). */
     var calendarUrl: String
         get() = prefs.getString(KEY_CALENDAR_URL, "").orEmpty().trim()
         set(value) {
