@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -345,6 +346,21 @@ private fun HourlyColumn(hour: HourlyPoint, modifier: Modifier = Modifier) {
 private const val FRAME_HOLD_MILLIS = 420L
 private const val LOOP_PAUSE_MILLIS = 1500L
 
+/** Approximate Lincoln County bounds drawn on the Doppler map. */
+private const val COUNTY_WEST = -106.05
+private const val COUNTY_EAST = -105.0
+private const val COUNTY_SOUTH = 33.3
+private const val COUNTY_NORTH = 33.98
+
+private data class CountyTown(val name: String, val lat: Double, val lon: Double)
+
+private val COUNTY_TOWNS = listOf(
+    CountyTown("RUIDOSO", 33.3314, -105.2855),
+    CountyTown("ALTO", 33.3906, -105.6775),
+    CountyTown("CAPITAN", 33.5456, -105.5767),
+    CountyTown("CARRIZOZO", 33.6420, -105.8770)
+)
+
 @Composable
 fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifier = Modifier) {
     val place = snapshot.place
@@ -382,7 +398,11 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
         caption = caption,
         modifier = modifier
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(4.dp))
+        ) {
             Canvas(Modifier.fillMaxSize()) {
                 val mid = Offset(size.width / 2f, size.height / 2f)
 
@@ -441,34 +461,81 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
                     val milesAcross = (radarFrame.east - radarFrame.west) * 69.0 *
                         cos(Math.toRadians(place.latitude))
                     val pxPerMile = (size.width / milesAcross.coerceAtLeast(1.0)).toFloat()
+                    // Rings follow the tuned town even when the map is county-centered.
+                    val town = Offset(
+                        radarFrame.xFraction(place.longitude) * size.width,
+                        radarFrame.yFraction(place.latitude) * size.height
+                    )
                     listOf(25, 50).forEach { miles ->
                         drawCircle(
                             color = Palette.Cyan.copy(alpha = 0.20f),
                             radius = pxPerMile * miles,
-                            center = mid,
+                            center = town,
                             style = Stroke(width = 1.2f)
                         )
                     }
+
+                    // Lincoln County box so the view reads as a county, not one town.
+                    if (radarFrame.west < COUNTY_EAST && radarFrame.east > COUNTY_WEST &&
+                        radarFrame.south < COUNTY_NORTH && radarFrame.north > COUNTY_SOUTH
+                    ) {
+                        val cx1 = radarFrame.xFraction(COUNTY_WEST) * size.width
+                        val cx2 = radarFrame.xFraction(COUNTY_EAST) * size.width
+                        val cy1 = radarFrame.yFraction(COUNTY_NORTH) * size.height
+                        val cy2 = radarFrame.yFraction(COUNTY_SOUTH) * size.height
+                        drawRect(
+                            color = Palette.Amber.copy(alpha = 0.45f),
+                            topLeft = Offset(cx1, cy1),
+                            size = Size(cx2 - cx1, cy2 - cy1),
+                            style = Stroke(width = 1.6f)
+                        )
+                    }
+
+                    // Nearby county towns give the map its detail.
+                    COUNTY_TOWNS.forEach { townMark ->
+                        if (townMark.lon in radarFrame.west..radarFrame.east &&
+                            townMark.lat in radarFrame.south..radarFrame.north
+                        ) {
+                            val dot = Offset(
+                                radarFrame.xFraction(townMark.lon) * size.width,
+                                radarFrame.yFraction(townMark.lat) * size.height
+                            )
+                            drawCircle(Palette.White.copy(alpha = 0.9f), 3f, dot)
+                        }
+                    }
                 }
 
+                // Crosshair stays on the tuned town; county label sits mid-map.
+                val townPt = loop?.let {
+                    Offset(
+                        it.xFraction(place.longitude) * size.width,
+                        it.yFraction(place.latitude) * size.height
+                    )
+                } ?: mid
                 val arm = 14f
-                drawLine(Palette.Amber, Offset(mid.x - arm, mid.y), Offset(mid.x + arm, mid.y), 2f)
-                drawLine(Palette.Amber, Offset(mid.x, mid.y - arm), Offset(mid.x, mid.y + arm), 2f)
-                drawCircle(Palette.Amber, 3.5f, mid)
+                drawLine(Palette.Amber, Offset(townPt.x - arm, townPt.y), Offset(townPt.x + arm, townPt.y), 2f)
+                drawLine(Palette.Amber, Offset(townPt.x, townPt.y - arm), Offset(townPt.x, townPt.y + arm), 2f)
+                drawCircle(Palette.Amber, 3.5f, townPt)
             }
 
             Text(
                 "N",
                 style = Type.Small.copy(color = Palette.Green),
-                modifier = Modifier.align(Alignment.TopCenter)
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+            )
+            Text(
+                "LINCOLN COUNTY",
+                style = Type.Small.copy(color = Palette.Amber),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 28.dp)
             )
             if (shown != null) {
                 Text(
                     text = "LOOP ${shown.ageLabel}",
                     style = Type.Small.copy(color = Palette.Amber),
-                    modifier = Modifier.align(Alignment.TopEnd)
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 12.dp)
                 )
             }
+            // Town names are drawn in-canvas dots above; keep the readout near the crosshair.
             Text(
                 place.name.uppercase(),
                 style = Type.Small.copy(color = Palette.White),
@@ -477,18 +544,18 @@ fun RadarPanel(snapshot: WeatherSnapshot, radar: RadarUiState, modifier: Modifie
             Text(
                 "${peakPrecip}% PEAK PRECIP • RINGS 25/50 MI",
                 style = Type.Small,
-                modifier = Modifier.align(Alignment.BottomStart)
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)
             )
             when {
                 radar is RadarUiState.Failed -> Text(
                     "RADAR FEED UNREACHABLE • RETRYING",
                     style = Type.Small.copy(color = Palette.Red),
-                    modifier = Modifier.align(Alignment.TopStart)
+                    modifier = Modifier.align(Alignment.TopStart).padding(top = 10.dp, start = 12.dp)
                 )
                 loop != null -> Text(
                     if (loop.echoesInRange) "ECHOES IN RANGE • NEXRAD" else "NO ECHOES IN RANGE • NEXRAD",
                     style = Type.Small.copy(color = if (loop.echoesInRange) Palette.Green else Palette.Muted),
-                    modifier = Modifier.align(Alignment.BottomEnd)
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 10.dp)
                 )
             }
         }

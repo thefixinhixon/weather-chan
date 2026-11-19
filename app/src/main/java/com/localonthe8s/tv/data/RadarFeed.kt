@@ -52,12 +52,20 @@ object RadarFeed {
 
     private const val BASE_LAYER = "nexrad-n0r"
 
-    /** Big enough to stay crisp on a 1080p panel, small enough to hold eight frames. */
+    /** 16:9 to match the panel, so the mosaic is never stretched or cropped. */
     private const val IMAGE_WIDTH = 1280
-    private const val IMAGE_HEIGHT = 336
+    private const val IMAGE_HEIGHT = 720
 
-    /** Degrees of longitude across the map — roughly 300-350 miles at mid-latitudes. */
-    private const val LON_SPAN = 6.2
+    /**
+     * Degrees across the map (~210 mi E-W, ~140 mi N-S at 33N): wide enough to
+     * hold all of Lincoln County plus the Sacramento mountains and the Tularosa
+     * Basin, instead of a tight crop on one town.
+     */
+    private const val LON_SPAN = 3.6
+
+    /** Lincoln County centroid — used as the map center for county towns. */
+    private const val COUNTY_LAT = 33.62
+    private const val COUNTY_LON = -105.65
 
     private const val FRAME_STEP_MINUTES = 5
     private const val FRAME_COUNT = 8
@@ -71,11 +79,15 @@ object RadarFeed {
 
     suspend fun load(place: Place): RadarLoop = withContext(Dispatchers.IO) {
         val latSpan = LON_SPAN * IMAGE_HEIGHT / IMAGE_WIDTH
+        // County towns share one county-wide view so Lincoln County reads as a
+        // whole; anywhere else stays centered on the tuned market.
+        val centerLat = if (isCountyTown(place)) COUNTY_LAT else place.latitude
+        val centerLon = if (isCountyTown(place)) COUNTY_LON else place.longitude
         val box = BoundingBox(
-            west = place.longitude - LON_SPAN / 2,
-            east = place.longitude + LON_SPAN / 2,
-            south = place.latitude - latSpan / 2,
-            north = place.latitude + latSpan / 2
+            west = centerLon - LON_SPAN / 2,
+            east = centerLon + LON_SPAN / 2,
+            south = centerLat - latSpan / 2,
+            north = centerLat + latSpan / 2
         )
 
         val gate = Semaphore(4)
@@ -167,6 +179,16 @@ object RadarFeed {
         } finally {
             connection.disconnect()
         }
+    }
+
+    /** Ruidoso, Alto, Capitan and Carrizozo all sit inside Lincoln County. */
+    private fun isCountyTown(place: Place): Boolean {
+        val name = place.name.lowercase(Locale.US)
+        if (name in setOf("ruidoso", "alto", "capitan", "carrizozo",
+                "ruidoso downs", "lincoln", "hondo", "nogal")) return true
+        val dLat = kotlin.math.abs(place.latitude - COUNTY_LAT)
+        val dLon = kotlin.math.abs(place.longitude - COUNTY_LON)
+        return dLat < 0.6 && dLon < 0.9
     }
 
     private fun coordinate(value: Double): String = String.format(Locale.US, "%.4f", value)

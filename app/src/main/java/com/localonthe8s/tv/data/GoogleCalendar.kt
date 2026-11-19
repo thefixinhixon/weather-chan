@@ -329,7 +329,7 @@ object GoogleCalendar {
         val day = dayFmt.format(start)
         val monthFmt = SimpleDateFormat("MMM", Locale.US).apply { timeZone = denver }
         val dayNumFmt = SimpleDateFormat("dd", Locale.US).apply { timeZone = denver }
-        val dateFmt = SimpleDateFormat("EEEE, MMM d", Locale.US).apply { timeZone = denver }
+        val dateFmt = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.US).apply { timeZone = denver }
         val timeFmt = SimpleDateFormat("h:mm a", Locale.US).apply { timeZone = denver }
         val endDate = Date(startMillis + durationMillis)
         val timeLabel = when {
@@ -387,9 +387,19 @@ object GoogleCalendar {
     private val TAG = Regex("<[^>]+>")
     private val WHITESPACE = Regex("\\s+")
 
+    /** ICS escapes: `\\,` -> `,`, `\\;` -> `;`, `\\n` -> space, `\\\\` -> `\`. */
+    private fun unescapeIcs(raw: String): String {
+        var text = raw
+            .replace("\\n", " ").replace("\\N", " ")
+            .replace("\\,", ",").replace("\\;", ";")
+        // Collapse escaped backslashes last so `\\\\,` -> `\,` -> `,` resolves correctly.
+        text = text.replace("\\\\", "\\")
+        return text
+    }
+
     private fun cleanText(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
-        var text = raw
+        var text = unescapeIcs(raw)
             .replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
             .replace("&nbsp;", " ")
             .replace("&amp;", "&")
