@@ -100,17 +100,18 @@ object GoogleCalendar {
         body.lineSequence().forEach { line ->
             val clean = line.trimEnd('\r')
             if (clean.isEmpty()) return@forEach
-            val colon = clean.indexOf(':')
+            // The header ends at the first colon outside quotes: ATTACH params
+            // like FILENAME="Movie Day artwork (16:9)" carry colons of their own.
+            val (name, colon) = headerSplit(clean)
             val looksNew = colon > 0 &&
-                clean.substringBefore(';').substringBefore(':').all { it.isUpperCase() || it == '-' }
+                name.all { it.isUpperCase() || it == '-' }
             if (looksNew) {
                 if (key.isNotEmpty()) {
                     params[key] = value.toString()
                     full[fullKey] = fullValue.toString()
                 }
-                val namePart = clean.substring(0, colon)
-                key = namePart.substringBefore(';')
-                fullKey = namePart
+                key = name
+                fullKey = clean.substring(0, colon)
                 value.clear()
                 value.append(clean.substring(colon + 1))
                 fullValue.clear()
@@ -150,6 +151,24 @@ object GoogleCalendar {
             recurrenceId = recurrenceEntry?.let { "${it.key}:${it.value}" },
             attachments = attachments
         )
+    }
+
+    /**
+     * Property name plus header-end colon, ignoring quoted param values.
+     * ATTACH lines like `ATTACH;FILENAME="Movie Day artwork (16:9)";...` carry
+     * colons (and maybe semicolons) inside quotes that must not split the line.
+     */
+    private fun headerSplit(line: String): Pair<String, Int> {
+        var inQuotes = false
+        var semi = -1
+        for (i in line.indices) {
+            when (line[i]) {
+                '"' -> inQuotes = !inQuotes
+                ';' -> if (!inQuotes && semi < 0) semi = i
+                ':' -> if (!inQuotes) return line.substring(0, if (semi < 0) i else semi) to i
+            }
+        }
+        return "" to -1
     }
 
     private data class Moment(val date: Date, val tz: TimeZone, val allDay: Boolean)

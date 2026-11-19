@@ -227,9 +227,10 @@ private fun EventArtworkPane(event: CommunityEvent, modifier: Modifier = Modifie
 }
 
 /**
- * Bundled flyer for Greenery Room .ics events, which ship without ATTACH images.
- * Renders offline per-event artwork (bingo card / film strip / closed sign /
- * pop-up leaf) so ICS cards never fall back to the bare date placeholder.
+ * Offline fallback flyer for Greenery Room .ics events whose ATTACH artwork
+ * hasn't loaded (offline, slow link, or an event with no attachment yet).
+ * Renders per-event artwork (bingo card / film strip / closed sign / pop-up
+ * leaf) so ICS cards never fall back to the bare date placeholder.
  */
 @Composable
 private fun GreeneryFlyer(event: CommunityEvent, modifier: Modifier = Modifier) {
