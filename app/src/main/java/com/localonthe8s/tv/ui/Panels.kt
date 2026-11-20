@@ -64,8 +64,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import android.graphics.BitmapFactory
 import com.localonthe8s.tv.data.DailyPoint
-import com.localonthe8s.tv.data.EventArtwork
 import com.localonthe8s.tv.data.HourlyPoint
 import com.localonthe8s.tv.data.Observation
 import com.localonthe8s.tv.data.OpenMeteo
@@ -77,6 +77,9 @@ import com.localonthe8s.tv.data.StateOutline
 import com.localonthe8s.tv.data.WeatherSnapshot
 import com.localonthe8s.tv.data.describe
 import com.localonthe8s.tv.data.glyphFor
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -841,11 +844,41 @@ fun rememberSkiApache(refreshToken: Int): SkiReport? {
     return report
 }
 
+/** How often a visible live cam still re-pulls while its slide is on screen. */
+private const val LIVE_FRAME_REFRESH_MILLIS = 10_000L
+
+/**
+ * Fetches a cam still bypassing every cache layer, so each poll is a new live
+ * frame. Kept out of the shared event-artwork LRU on purpose: timestamped live
+ * URLs would otherwise evict real event flyers. Null when the cam is down;
+ * callers keep the last good frame on screen.
+ */
+private suspend fun fetchLiveBitmap(url: String): ImageBitmap? = withContext(Dispatchers.IO) {
+    runCatching {
+        val connection = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+            connectTimeout = 12_000
+            readTimeout = 20_000
+            instanceFollowRedirects = true
+            useCaches = false
+            setRequestProperty("Accept", "image/*")
+            setRequestProperty("Cache-Control", "no-cache, no-store")
+            setRequestProperty("Pragma", "no-cache")
+            setRequestProperty("User-Agent", com.localonthe8s.tv.data.EventsFeed.BROWSER_AGENT)
+        }
+        try {
+            if (connection.responseCode !in 200..299) return@runCatching null
+            connection.inputStream.use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrNull()
+}
+
 /**
  * Ski Apache live conditions: the mountain-cam still beside the snow numbers
- * and the lift board. The still reloads on every visit so the picture is at
- * most one rotation old; a timestamp buster keeps the shared art cache from
- * serving the previous frame. The resort's own report time stays off the
+ * and the lift board. The still re-pulls every few seconds while the slide is
+ * on screen and restarts fresh on every visit, so the picture tracks the live
+ * cam instead of holding one frame. The resort's own report time stays off the
  * picture — the cam is live even when the resort last posted yesterday — and
  * is labeled as the resort report beside the lift board instead.
  */
@@ -865,10 +898,20 @@ fun SkiApachePanel(report: SkiReport?, modifier: Modifier = Modifier) {
         }
         Row(Modifier.fillMaxSize()) {
             var frame by remember { mutableStateOf<ImageBitmap?>(null) }
+            // Loop while composed: fresh frame on every visit plus a re-pull
+            // mid-slide so the 15s slot reads as live, not a still. Leaving
+            // the slide cancels the loop; coming back restarts it.
             LaunchedEffect(Unit) {
-                val url = SkiApache.SNAPSHOT_URL + "?t=${System.currentTimeMillis()}"
-                frame = EventArtwork.cached(url)?.asImageBitmap()
-                    ?: EventArtwork.load(url)?.asImageBitmap()
+                while (true) {
+                    try {
+                        fetchLiveBitmap(SkiApache.SNAPSHOT_URL)?.let { frame = it }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // Keep the last good frame; retry on the next tick.
+                    }
+                    delay(LIVE_FRAME_REFRESH_MILLIS)
+                }
             }
             Box(
                 modifier = Modifier
@@ -958,8 +1001,9 @@ fun rememberRuidoso(refreshToken: Int): com.localonthe8s.tv.data.WeatherSnapshot
 
 /**
  * Live conditions in Ruidoso: the Midtown webcam still beside the town's own
- * current readings. The still reloads on every visit so the picture is at
- * most one rotation old; the poster fills in when the stream is down.
+ * current readings. The still re-pulls every few seconds while the slide is
+ * on screen and restarts fresh on every visit; the poster fills in only when
+ * no live frame has arrived yet.
  */
 @Composable
 fun RuidosoPanel(live: com.localonthe8s.tv.data.WeatherSnapshot?, modifier: Modifier = Modifier) {
@@ -978,12 +1022,26 @@ fun RuidosoPanel(live: com.localonthe8s.tv.data.WeatherSnapshot?, modifier: Modi
         val today = live.daily.firstOrNull()
         Row(Modifier.fillMaxSize()) {
             var frame by remember { mutableStateOf<ImageBitmap?>(null) }
+            // Same live loop as the mountain cam: fresh frame on every visit
+            // plus a re-pull mid-slide. The poster is a first-frame fallback
+            // only — once a live frame lands it is never replaced by it.
             LaunchedEffect(Unit) {
-                val busted = Ruidoso.LIVE_THUMB + "?t=${System.currentTimeMillis()}"
-                frame = EventArtwork.cached(busted)?.asImageBitmap()
-                    ?: EventArtwork.load(busted)?.asImageBitmap()
-                    ?: EventArtwork.cached(Ruidoso.POSTER)?.asImageBitmap()
-                    ?: EventArtwork.load(Ruidoso.POSTER)?.asImageBitmap()
+                while (true) {
+                    try {
+                        val live = fetchLiveBitmap(Ruidoso.SNAPSHOT_URL)
+                            ?: fetchLiveBitmap(Ruidoso.LIVE_THUMB)
+                        if (live != null) {
+                            frame = live
+                        } else if (frame == null) {
+                            fetchLiveBitmap(Ruidoso.POSTER)?.let { frame = it }
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // Keep the last good frame; retry on the next tick.
+                    }
+                    delay(LIVE_FRAME_REFRESH_MILLIS)
+                }
             }
             Box(
                 modifier = Modifier
